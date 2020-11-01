@@ -9,9 +9,11 @@ edition = "2018"
 [lib]
 name = "ptero"
 path = "src/lib.rs"
+doc = true
 
 [[bin]]
 name = "ptero_cli"
 path = "src/main.rs"
+doc = false
 
 [dependencies]
