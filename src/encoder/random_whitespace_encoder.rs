@@ -20,18 +20,20 @@ impl RandomWhitespaceEncoder {
 
 impl Encoder for RandomWhitespaceEncoder {
     fn encode(&self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) {
-        let mut rng = thread_rng();
-        let position_determinant = rng.gen_range(0, &line.len());
-        let mut position = line.find(' ').unwrap_or(line.len() - 1);
-        for (index, character) in line.char_indices() {
-            if index > position_determinant {
-                break;
+        if let Some(Bit(1)) = data.next() {
+            let mut rng = thread_rng();
+            let position_determinant = rng.gen_range(0, &line.len());
+            let mut position = line.find(' ').unwrap_or(line.len() - 1);
+            for (index, character) in line.char_indices() {
+                if index > position_determinant {
+                    break;
+                }
+                if character.is_whitespace() {
+                    position = index;
+                }
             }
-            if character.is_whitespace() {
-                position = index;
-            }
+            line.insert_str(position, " ");
         }
-        line.insert_str(position, " ");
         Encoder::encode(&self.next, data, line);
     }
 }

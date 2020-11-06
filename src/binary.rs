@@ -5,10 +5,10 @@ use std::{
 };
 
 /// Type for representing a byte.
-#[derive(Debug)]
+#[derive(Debug, PartialOrd, PartialEq, Clone)]
 pub struct Byte(pub u8);
 /// Type for representing a bit.
-#[derive(Debug)]
+#[derive(Debug, PartialOrd, PartialEq, Clone)]
 pub struct Bit(pub u8);
 
 #[derive(Debug)]
@@ -72,27 +72,45 @@ impl BinaryPattern {
 }
 
 impl<I> BitIterator<I> {
-    /// Creates a new iterator for the specified iterator. 
+    /// Creates a new iterator for the specified iterator.
     /// Currently only supports [Byte](struct.Byte.html) type iterator.
-    /// 
-    /// **Please note that it begins iteration from the MSB.**
     ///
+    /// **Please note that it begins iteration from the MSB.**
+    /// 
     /// # Arguments
     ///
     /// * `iter` - Iterator of type `Iterator<Item = Byte>`
     ///
     /// # Examples
-    /// 
+    ///
+    /// ## Returns optional value
     /// ```
     /// use ptero::binary::{Bit, Byte, BitIterator};
     ///
     /// let array: Vec<Byte> = vec!(1, 0, 2, 3).iter().map(|&v| Byte(v)).collect();
     /// let mut iterator = BitIterator::new(array.into_iter());
-    /// 
+    ///
     /// let bit = iterator.next().unwrap();
-    /// let Bit(value) = bit; 
+    /// let Bit(value) = bit;
     /// assert_eq!(value, 0);
+    /// ```    
+    /// 
+    /// ## Repeats itself after reaching the end
     /// ```
+    /// use ptero::binary::{Bit, Byte, BitIterator};
+    ///
+    /// let array: Vec<Byte> = vec!(0).iter().map(|&v| Byte(v)).collect();
+    /// let mut iterator = BitIterator::new(array.into_iter());
+    ///
+    /// for v in &mut iterator {
+    ///     assert_eq!(v, Bit(0));
+    /// } 
+    /// iterator.next();
+    /// for v in &mut iterator {
+    ///     assert_eq!(v, Bit(0));
+    /// }
+    /// ```    
+    /// 
     ///
     pub fn new(iter: I) -> Self {
         // At the first execution we'll fetch the first value and then process it
@@ -112,7 +130,6 @@ impl<I: Iterator<Item = Byte>> Iterator for BitIterator<I> {
             self.fetch_pattern.start();
             self.current_byte = self.iter.next()?;
         };
-
         let bit = self.fetch_pattern.get(&self.current_byte);
         self.fetch_pattern.shift();
         Some(bit)
