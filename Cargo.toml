@@ -1,19 +1,20 @@
 [package]
-name = "ptero-cli"
-version = "0.1.0"
 authors = ["Paweł Górski <dev.baymax42@gmail.com>"]
 edition = "2018"
+name = "ptero-cli"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
+doc = true
 name = "ptero"
 path = "src/lib.rs"
-doc = true
 
 [[bin]]
-name = "ptero_cli"
-path = "src/main.rs"
 doc = false
+name = "ptero_cli"
+path = "src/bin/main.rs"
 
 [dependencies]
+rand = "0.7.3"
