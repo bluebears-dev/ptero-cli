@@ -1,6 +1,9 @@
 # Ptero CLI
 
 This is a repository for the steganography project for *Individual Project* course on university.
+
+It is a extended version of the alogorithm presented [here](https://link.springer.com/chapter/10.1007/978-3-319-76687-4_15). 
+However, it also includes an implementation of specified algorithm. 
 <!-- TOC -->
 - [Ptero CLI](#ptero-cli)
   - [Installation](#installation)
