@@ -1,33 +1,30 @@
 use crate::binary::Bit;
 
-use super::Encoder;
+use super::{ASCII_ENCODING_WHITESPACE, Encoder};
 
-pub struct TrailingWhitespaceEncoder<T> {
-    next: T,
-}
+pub struct TrailingWhitespaceEncoder {}
 
-impl<T> TrailingWhitespaceEncoder<T>
-where
-    T: Encoder,
-{
-    pub fn new(encoder: T) -> Self {
-        TrailingWhitespaceEncoder { next: encoder }
+impl Default for TrailingWhitespaceEncoder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl<T> Encoder for TrailingWhitespaceEncoder<T>
-where
-    T: Encoder,
-{
-    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) {
+impl TrailingWhitespaceEncoder {
+    pub fn new() -> Self {
+        TrailingWhitespaceEncoder {}
+    }
+}
+
+impl Encoder for TrailingWhitespaceEncoder {
+    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> bool {
         match data.next() {
             Some(Bit(1)) => {
-                println!("Adding trailing whitespace: {}", &line);
-                line.push(' ');
-                Encoder::encode(&mut self.next, data, line);
+                line.push( ASCII_ENCODING_WHITESPACE);
+                true
             }
-            Some(Bit(0)) => Encoder::encode(&mut self.next, data, line),
-            _ => (),
+            None => false,
+            _ => true,
         }
     }
 }

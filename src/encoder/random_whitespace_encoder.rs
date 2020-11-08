@@ -1,32 +1,26 @@
 use crate::binary::Bit;
 
-use super::Encoder;
+use super::{ASCII_ENCODING_WHITESPACE, Encoder};
 use rand::{thread_rng, Rng};
 
-pub struct RandomWhitespaceEncoder<T>
-where
-    T: Encoder,
-{
-    next: T,
-}
+pub struct RandomWhitespaceEncoder {}
 
-impl<T> RandomWhitespaceEncoder<T>
-where
-    T: Encoder,
-{
-    pub fn new(encoder: T) -> Self {
-        RandomWhitespaceEncoder { next: encoder }
+impl Default for RandomWhitespaceEncoder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-impl<T> Encoder for RandomWhitespaceEncoder<T>
-where
-    T: Encoder,
-{
-    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) {
+impl RandomWhitespaceEncoder {
+    pub fn new() -> Self {
+        RandomWhitespaceEncoder {}
+    }
+}
+
+impl Encoder for RandomWhitespaceEncoder {
+    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> bool {
         match data.next() {
             Some(Bit(1)) => {
-                println!("Adding random whitespace:, {}", &line);
                 let mut rng = thread_rng();
                 let position_determinant = rng.gen_range(0, &line.len());
                 let mut position = line.find(' ').unwrap_or(line.len() - 1);
@@ -38,11 +32,11 @@ where
                         position = index;
                     }
                 }
-                line.insert_str(position, " ");
-                Encoder::encode(&mut self.next, data, line)
+                line.insert_str(position, &String::from(ASCII_ENCODING_WHITESPACE));
+                true
             }
-            Some(Bit(0)) => Encoder::encode(&mut self.next, data, line),
-            _ => (),
+            None => false,
+            _ => true,
         }
     }
 }
