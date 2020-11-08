@@ -1,3 +1,4 @@
+use log::{info, warn};
 use ptero::{
     binary::{BitIterator, Byte},
     encoder::{Encoder, ExtendedLineEncoders},
@@ -23,17 +24,18 @@ fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
 
 fn main() -> io::Result<()> {
     const FILENAME: &str = "cover.txt";
+    pretty_env_logger::init();
+
 
     let file = File::open(FILENAME).expect("Failed opening the file");
     let mut buf_reader = BufReader::new(file);
     let text_wrapper = WordIterator::from_reader(&mut buf_reader).expect("failed reading the file");
-
-    let values: Vec<u8> = Vec::from([0b11111110; 20]);
-    println!("Required cover text capacity: {}", BitIterator::new(values.iter().map(|v| Byte(*v))).count());
+    let values: Vec<u8> = Vec::from([0b11111100; 39]);
+    warn!("Required cover text capacity: {}", BitIterator::new(values.iter().map(|v| Byte(*v))).count());
 
     let mut data = BitIterator::new(values.iter().map(|v| Byte(*v))).peekable();
     let pivot = 2 * determine_pivot_size(text_wrapper.iter());
-    println!("Using determined pivot: {}", pivot);
+    info!("Using determined pivot: {}", pivot);
     let rc_word_iter = Rc::new(RefCell::new(text_wrapper.iter().peekable()));
     let mut stego_text = String::new();
     let mut no_data_left = false;
@@ -64,10 +66,10 @@ fn main() -> io::Result<()> {
             data.count()
         ));
     }
-    println!("Encoded all the data");
+    info!("Encoded all the data");
 
     let mut file = File::create("stego.txt").expect("Failed opening file");
     file.write_all(&stego_text.as_bytes())?;
-    println!("Saved");
+    info!("Saved");
     Ok(())
 }

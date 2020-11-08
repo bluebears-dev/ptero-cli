@@ -9,8 +9,12 @@
             "problemMatcher": [
                 "$rustc"
             ],
-            "group": "build",
-            "label": "Rust: cargo run - ptero-cli"
+            "label": "Run ptero-cli - debug",
+            "options": {
+                "env": {
+                    "RUST_LOG": "debug"
+                }
+            },
         }
     ]
 }

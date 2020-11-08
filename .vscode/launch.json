@@ -7,7 +7,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug nit tests 'ptero'",
+            "name": "Debug unit tests 'ptero'",
             "cargo": {
                 "args": [
                     "test",
@@ -19,6 +19,9 @@
                     "name": "ptero",
                     "kind": "lib"
                 }
+            },
+            "env": {
+                "RUST_LOG": "debug"
             },
             "args": [],
             "cwd": "${workspaceFolder}"
@@ -36,7 +39,10 @@
                 "filter": {
                     "name": "ptero_cli",
                     "kind": "bin"
-                }
+                },
+                "env": {
+                    "RUST_LOG": "debug"
+                },
             },
             "args": [],
             "cwd": "${workspaceFolder}"
@@ -55,7 +61,10 @@
                 "filter": {
                     "name": "ptero_cli",
                     "kind": "bin"
-                }
+                },
+                "env": {
+                    "RUST_LOG": "debug"
+                },
             },
             "args": [],
             "cwd": "${workspaceFolder}"
