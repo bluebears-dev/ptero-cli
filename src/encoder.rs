@@ -24,10 +24,10 @@ impl<'a> ExtendedLineEncoders<'a> {
                 Box::new(line_extend_encoder::LineExtendEncoder::new(word_iter)),
                 Box::new(trailing_whitespace_encoder::TrailingWhitespaceEncoder::new()),
             ],
-        }
+        }  
     }
 }
-
+ 
 impl<'a> Encoder for ExtendedLineEncoders<'a> {
     fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> bool {
         let mut is_data_still_available = true;
