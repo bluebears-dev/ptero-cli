@@ -86,7 +86,6 @@ fn main() -> io::Result<()> {
 
     let sp = Spinner::new(Spinners::Dots12, "Encoding the data".into());
     while !(no_data_left && no_words_left) {
-        sleep(Duration::from_secs(1));
         let mut line = String::new();
         if !no_words_left {
             construct_line(rc_word_iter.borrow_mut(), &mut line, pivot);
@@ -109,12 +108,12 @@ fn main() -> io::Result<()> {
             bit_iter.count()
         ));
     }
-    info!("Encoded all the data");
+    println!("Finished encoding");
 
     if let Some(path) = opts.output {
-        let mut output_file = File::create(path).expect("Failed opening file");
+        let mut output_file = File::create(&path).expect("Failed opening file");
         output_file.write_all(&stego_text.as_bytes())?;
-        info!("Saved");
+        println!("Saved to {}", &path);
     } else {
         println!("\n{}\n", &stego_text);
     }
