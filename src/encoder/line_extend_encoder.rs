@@ -1,10 +1,21 @@
+//! # Description
+//! 
+//! This encoder extends line with extra word (to be greater than pivot) to encode bit.
+//! If the line length is greater than the pivot the bit 1 is encoded, otherwise 0.
+//!  
+//! For more info about pivot see [LineByPivotIterator](../../text/struct.LineByPivotIterator.html).
+//! 
+//! # Behavior
+//! 
+//! This encoder can return [EncodingError](../struct.EncodingError.html) when no extra words are found
+//! and the bit 1 occurs.
 use std::cell::RefMut;
 
 use log::trace;
 
 use crate::{binary::Bit, text::WordIterator};
 
-use super::{Encoder, ASCII_ENCODING_WHITESPACE};
+use super::{Encoder, EncoderResult, EncodingError, Result, ASCII_ENCODING_WHITESPACE};
 
 pub struct LineExtendEncoder<'a, T>
 where
@@ -26,20 +37,24 @@ impl<'a, T> Encoder for LineExtendEncoder<'a, T>
 where
     T: WordIterator,
 {
-    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> bool {
-        match data.next() {
+    fn encode(
+        &mut self,
+        data: &mut dyn Iterator<Item = Bit>,
+        line: &mut String,
+    ) -> Result<EncoderResult> {
+        Ok(match data.next() {
             Some(Bit(1)) => {
                 let word = self
                     .word_iter
                     .next_word()
-                    .expect("No words left to extend a line");
+                    .ok_or_else(EncodingError::no_words_error)?;
                 trace!("Extending line");
                 line.push(ASCII_ENCODING_WHITESPACE);
                 line.push_str(word.as_str());
-                true
+                EncoderResult::Success
             }
-            None => false,
-            _ => true,
-        }
+            None => EncoderResult::NoDataLeft,
+            _ => EncoderResult::Success,
+        })
     }
 }

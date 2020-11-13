@@ -1,9 +1,14 @@
 use log::{debug, info, trace, warn};
-use ptero::{binary::{BitIterator}, encoder::{Encoder, extended_line_encoder::ExtendedLineEncoder}, text::LineByPivotIterator};
+use ptero::{
+    binary::BitIterator,
+    encoder::{
+        complex::extended_line_encoder::ExtendedLineEncoder, Encoder, EncoderResult, EncodingError,
+    },
+    text::LineByPivotIterator,
+};
 use spinners::{Spinner, Spinners};
 use std::{
     cell::RefCell,
-    fmt,
     fs::{self, File},
     io::{self, Write},
     rc::Rc,
@@ -44,23 +49,12 @@ fn enable_logging(verbose: u8) {
         .init();
 }
 
-#[derive(Debug, Clone)]
-struct EncodeError {
-    count: usize,
-}
-
-impl fmt::Display for EncodeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "exceeded cover text capacity by {} bits", self.count)
-    }
-}
-
 trait Encodable {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, EncodeError>;
+    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, EncodingError>;
 }
 
 impl Encodable for Vec<u8> {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, EncodeError> {
+    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, EncodingError> {
         let line_iterator = Rc::new(RefCell::new(LineByPivotIterator::new(&cover_text, pivot)));
         let mut bits = BitIterator::new(self);
         let mut stego_text = String::new();
@@ -83,7 +77,7 @@ impl Encodable for Vec<u8> {
 
             if !no_data_left {
                 let mut encoder = ExtendedLineEncoder::new(line_iterator.borrow_mut());
-                if !encoder.encode(&mut bits, &mut line) {
+                if let EncoderResult::NoDataLeft = encoder.encode(&mut bits, &mut line)? {
                     debug!("No data left to encode, setting flag to true");
                     no_data_left = true;
                 }
@@ -92,9 +86,8 @@ impl Encodable for Vec<u8> {
             stego_text.push_str(&format!("{}\n", &line));
         }
         if !no_data_left {
-            Err(EncodeError {
-                count: bits.count(),
-            })
+            debug!("Capacity exceeded by {} bits", bits.count());
+            Err(EncodingError::capacity_error())
         } else {
             Ok(stego_text)
         }

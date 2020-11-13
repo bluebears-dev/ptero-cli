@@ -1,6 +1,10 @@
+//! # Description
+//! 
+//! This encoder puts [ASCII whitespace](../constant.ASCII_ENCODING_WHITESPACE.html) between randomly selected two words.
+//! If the duplicate whitespace is present the bit 1 is encoded, otherwise 0.
 use crate::binary::Bit;
 
-use super::{ASCII_ENCODING_WHITESPACE, Encoder};
+use super::{ASCII_ENCODING_WHITESPACE, Encoder, EncoderResult, Result};
 use log::trace;
 use rand::{thread_rng, Rng};
 
@@ -19,8 +23,8 @@ impl RandomWhitespaceEncoder {
 }
 
 impl Encoder for RandomWhitespaceEncoder {
-    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> bool {
-        match data.next() {
+    fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> Result<EncoderResult> {
+        Ok(match data.next() {
             Some(Bit(1)) => {
                 let mut rng = thread_rng();
                 let position_determinant = rng.gen_range(0, &line.len());
@@ -35,10 +39,10 @@ impl Encoder for RandomWhitespaceEncoder {
                 }
                 trace!("Putting space at position {}", position);
                 line.insert_str(position, &String::from(ASCII_ENCODING_WHITESPACE));
-                true
+                EncoderResult::Success
             }
-            None => false,
-            _ => true,
-        }
+            None => EncoderResult::NoDataLeft,
+            _ => EncoderResult::Success,
+        })
     }
 }

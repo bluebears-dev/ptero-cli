@@ -72,13 +72,13 @@ impl BinaryPattern {
 }
 
 impl<'a> BitIterator<'a> {
-    /// Creates a bit iterator for specified bytes
+    /// Creates a bit iterator for specified byte array.
     ///
     /// **Please note that it begins iteration from the MSB.**
     ///
     /// # Arguments
     ///
-    /// * `iter` - Iterator of type `Iterator<Item = u8>`
+    /// * `array` - reference to array of bytes `&[u8]`
     ///
     /// # Examples
     ///
@@ -86,8 +86,8 @@ impl<'a> BitIterator<'a> {
     /// ```
     /// use ptero::binary::{Bit, BitIterator};
     ///
-    /// let array: Vec<Byte> = vec!(1, 0, 2, 3);
-    /// let mut iterator = BitIterator::new(array);
+    /// let array: Vec<u8> = vec!(1, 0, 2, 3);
+    /// let mut iterator = BitIterator::new(&array);
     ///
     /// let bit = iterator.next().unwrap();
     /// let Bit(value) = bit;
@@ -98,8 +98,8 @@ impl<'a> BitIterator<'a> {
     /// ```
     /// use ptero::binary::{Bit, BitIterator};
     ///
-    /// let array: Vec<Byte> = vec!(0);
-    /// let mut iterator = BitIterator::new(array);
+    /// let array: Vec<u8> = vec!(0);
+    /// let mut iterator = BitIterator::new(&array);
     ///
     /// for v in &mut iterator {
     ///     assert_eq!(v, Bit(0));
@@ -111,10 +111,10 @@ impl<'a> BitIterator<'a> {
     /// ```    
     ///
     ///
-    pub fn new(vector: &'a [u8]) -> Self {
+    pub fn new(array: &'a [u8]) -> Self {
         // At the first execution we'll fetch the first value and then process it
         BitIterator {
-            bytes: vector,
+            bytes: array,
             index: 0,
             fetch_pattern: BinaryPattern::new(),
         }
