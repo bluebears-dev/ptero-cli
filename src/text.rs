@@ -1,32 +1,60 @@
-use std::{io::{self, BufRead}, str::SplitWhitespace};
+use crate::encoder::ASCII_ENCODING_WHITESPACE;
 
-/// Word iterator.
-/// It is a proxy for the [SplitWhitespace](https://doc.rust-lang.org/std/str/struct.SplitWhitespace.html) iterator enhanced
-/// by ability to read from [BufRead](https://doc.rust-lang.org/std/io/trait.BufRead.html).
 #[derive(Debug)]
-pub struct WordIterator {
-    raw_text: String,
+pub struct LineByPivotIterator {
+    words: Vec<String>,
+    index: usize,
+    pivot: usize,
 }
 
-impl WordIterator {
-    /// Creates new `WordIterator` from given string slice.
-    /// It converts it to the owned `String` internally.
-    pub fn new(text: &str) -> WordIterator {
-        WordIterator {
-            raw_text: text.to_owned(),
+impl LineByPivotIterator {
+    pub fn new(text: &String, pivot: usize) -> Self {
+        LineByPivotIterator {
+            words: text
+                .split_whitespace()
+                .collect::<Vec<&str>>()
+                .iter()
+                .map(|v| v.to_string())
+                .collect(),
+            pivot,
+            index: 0,
         }
     }
 
-    /// Proxy method for returning [SplitWhitespace](https://doc.rust-lang.org/std/str/struct.SplitWhitespace.html) iterator.
-    pub fn iter(&self) -> SplitWhitespace {
-        self.raw_text.split_whitespace()
+    pub fn peek_word(&self) -> Option<String> {
+        self.words.get(self.index).map(|string| string.to_owned())
     }
+}
 
-    /// Reads whole content from the specified [BufRead](https://doc.rust-lang.org/std/io/trait.BufRead.html)
-    /// and returns it as the instance of the `WordIterator`.
-    pub fn from_reader<R: BufRead>(reader: &mut R) -> io::Result<WordIterator> {
-        let mut str = String::new();
-        reader.read_to_string(&mut str)?;
-        Ok(WordIterator::new(&str))
+pub trait WordIterator {
+    fn next_word(&mut self) -> Option<String>;
+}
+
+impl WordIterator for LineByPivotIterator {
+    fn next_word(&mut self) -> Option<String> {
+        let next_word = self.peek_word();
+        if next_word.is_some() {
+            self.index += 1;
+        }
+        next_word
+    }
+}
+
+impl Iterator for LineByPivotIterator {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let word = self.words.get(self.index);
+        if word.is_none() {
+            return None;
+        }
+
+        let mut line = String::new();
+        while line.len() + word?.len() <= self.pivot {
+            line.push_str(word?);
+            line.push(ASCII_ENCODING_WHITESPACE);
+            self.index += 1;
+        }
+        Some(line.trim_end().to_string())
     }
 }
