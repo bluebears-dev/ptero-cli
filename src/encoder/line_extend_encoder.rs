@@ -1,5 +1,7 @@
 use std::cell::RefMut;
 
+use log::trace;
+
 use crate::{binary::Bit, text::WordIterator};
 
 use super::{Encoder, ASCII_ENCODING_WHITESPACE};
@@ -31,6 +33,7 @@ where
                     .word_iter
                     .next_word()
                     .expect("No words left to extend a line");
+                trace!("Extending line");
                 line.push(ASCII_ENCODING_WHITESPACE);
                 line.push_str(word.as_str());
                 true

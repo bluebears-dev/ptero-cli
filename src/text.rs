@@ -1,5 +1,9 @@
 use crate::encoder::ASCII_ENCODING_WHITESPACE;
 
+pub trait WordIterator {
+    fn next_word(&mut self) -> Option<String>;
+}
+
 #[derive(Debug)]
 pub struct LineByPivotIterator {
     words: Vec<String>,
@@ -8,7 +12,7 @@ pub struct LineByPivotIterator {
 }
 
 impl LineByPivotIterator {
-    pub fn new(text: &String, pivot: usize) -> Self {
+    pub fn new(text: &str, pivot: usize) -> Self {
         LineByPivotIterator {
             words: text
                 .split_whitespace()
@@ -26,10 +30,6 @@ impl LineByPivotIterator {
     }
 }
 
-pub trait WordIterator {
-    fn next_word(&mut self) -> Option<String>;
-}
-
 impl WordIterator for LineByPivotIterator {
     fn next_word(&mut self) -> Option<String> {
         let next_word = self.peek_word();
@@ -44,16 +44,14 @@ impl Iterator for LineByPivotIterator {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let word = self.words.get(self.index);
-        if word.is_none() {
-            return None;
-        }
+        let mut word = self.words.get(self.index)?;
 
         let mut line = String::new();
-        while line.len() + word?.len() <= self.pivot {
-            line.push_str(word?);
+        while line.len() + word.len() <= self.pivot {
+            line.push_str(word);
             line.push(ASCII_ENCODING_WHITESPACE);
             self.index += 1;
+            word = self.words.get(self.index)?;
         }
         Some(line.trim_end().to_string())
     }

@@ -1,6 +1,7 @@
 use crate::binary::Bit;
 
 use super::{ASCII_ENCODING_WHITESPACE, Encoder};
+use log::trace;
 use rand::{thread_rng, Rng};
 
 pub struct RandomWhitespaceEncoder {}
@@ -32,6 +33,7 @@ impl Encoder for RandomWhitespaceEncoder {
                         position = index;
                     }
                 }
+                trace!("Putting space at position {}", position);
                 line.insert_str(position, &String::from(ASCII_ENCODING_WHITESPACE));
                 true
             }

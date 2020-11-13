@@ -1,3 +1,5 @@
+use log::trace;
+
 use crate::binary::Bit;
 
 use super::{ASCII_ENCODING_WHITESPACE, Encoder};
@@ -20,6 +22,7 @@ impl Encoder for TrailingWhitespaceEncoder {
     fn encode(&mut self, data: &mut dyn Iterator<Item = Bit>, line: &mut String) -> bool {
         match data.next() {
             Some(Bit(1)) => {
+                trace!("Putting whitespace at the end of the line");
                 line.push( ASCII_ENCODING_WHITESPACE);
                 true
             }
