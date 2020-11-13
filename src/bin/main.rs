@@ -1,17 +1,9 @@
-use log::{debug, info, trace, warn};
-use ptero::{
-    binary::BitIterator,
-    encoder::{
-        complex::extended_line_encoder::ExtendedLineEncoder, Encoder, EncoderResult, EncodingError,
-    },
-    text::LineByPivotIterator,
-};
+use log::{info, warn};
+use ptero::{binary::BitIterator, encodable::Encodable};
 use spinners::{Spinner, Spinners};
 use std::{
-    cell::RefCell,
     fs::{self, File},
     io::{self, Write},
-    rc::Rc,
 };
 
 use clap::Clap;
@@ -47,51 +39,6 @@ fn enable_logging(verbose: u8) {
     pretty_env_logger::formatted_builder()
         .parse_filters(logging_level)
         .init();
-}
-
-trait Encodable {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, EncodingError>;
-}
-
-impl Encodable for Vec<u8> {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, EncodingError> {
-        let line_iterator = Rc::new(RefCell::new(LineByPivotIterator::new(&cover_text, pivot)));
-        let mut bits = BitIterator::new(self);
-        let mut stego_text = String::new();
-
-        let mut no_data_left = false;
-        while !no_data_left {
-            let mut line: String;
-            if let Some(next_line) = line_iterator.borrow_mut().next() {
-                line = next_line;
-            } else {
-                debug!("No words left, stopping...");
-                break;
-            }
-
-            debug!(
-                "Trying to encode the data to line of length {}",
-                &line.len()
-            );
-            trace!("Constructed line: {}", &line);
-
-            if !no_data_left {
-                let mut encoder = ExtendedLineEncoder::new(line_iterator.borrow_mut());
-                if let EncoderResult::NoDataLeft = encoder.encode(&mut bits, &mut line)? {
-                    debug!("No data left to encode, setting flag to true");
-                    no_data_left = true;
-                }
-            }
-
-            stego_text.push_str(&format!("{}\n", &line));
-        }
-        if !no_data_left {
-            debug!("Capacity exceeded by {} bits", bits.count());
-            Err(EncodingError::capacity_error())
-        } else {
-            Ok(stego_text)
-        }
-    }
 }
 
 fn main() -> io::Result<()> {

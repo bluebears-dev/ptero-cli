@@ -10,3 +10,6 @@ pub mod text;
 
 /// Contains secret data encoders both simple and complex ones.
 pub mod encoder;
+
+/// Definition of Encodable types.
+pub mod encodable;
