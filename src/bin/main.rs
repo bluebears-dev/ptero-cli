@@ -1,9 +1,5 @@
 use log::{debug, info, trace, warn};
-use ptero::{
-    binary::{Bit, BitIterator},
-    encoder::{Encoder, ExtendedLineEncoders},
-    text::LineByPivotIterator,
-};
+use ptero::{binary::{BitIterator}, encoder::{Encoder, extended_line_encoder::ExtendedLineEncoder}, text::LineByPivotIterator};
 use spinners::{Spinner, Spinners};
 use std::{
     cell::RefCell,
@@ -86,7 +82,7 @@ impl Encodable for Vec<u8> {
             trace!("Constructed line: {}", &line);
 
             if !no_data_left {
-                let mut encoder = ExtendedLineEncoders::new(line_iterator.borrow_mut());
+                let mut encoder = ExtendedLineEncoder::new(line_iterator.borrow_mut());
                 if !encoder.encode(&mut bits, &mut line) {
                     debug!("No data left to encode, setting flag to true");
                     no_data_left = true;
@@ -113,11 +109,11 @@ fn main() -> io::Result<()> {
     let pivot = 2 * determine_pivot_size(cover_text.split_whitespace());
 
     let data = fs::read(opts.data).expect("Failed opening the data file");
+
     warn!(
         "Required cover text capacity: {}",
         BitIterator::new(&data).count()
     );
-
     info!("Using determined pivot: {}", pivot);
 
     let sp = Spinner::new(Spinners::Dots12, "Encoding the data".into());
