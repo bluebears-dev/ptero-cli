@@ -300,6 +300,7 @@ dependencies = [
  "log",
  "pretty_env_logger",
  "rand",
+ "regex",
  "spinners",
 ]
 

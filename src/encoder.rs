@@ -38,7 +38,7 @@ pub trait Encoder {
     /// * `line` - line string holder
     ///
     /// # Returns
-    /// It returns whether encoder
+    /// It returns whether the encoding was successful. See [EncoderResult](enum.EncoderResult.html) and [EncodingError](struct.EncodingError.html).
     ///
     fn encode(
         &mut self,
