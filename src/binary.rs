@@ -1,7 +1,9 @@
+use std::error::Error;
 use std::{
     fmt,
     fs::File,
     io::{self, BufReader, Read},
+    vec::Vec,
 };
 
 /// Type for representing a bit.
@@ -142,3 +144,42 @@ impl fmt::Display for Bit {
         write!(f, "{}", self.0)
     }
 }
+
+pub fn convert_to_bytes(bits: &[Bit]) -> Result<Vec<u8>, BinaryConversionError> {
+    let mut bytes = Vec::<u8>::default();
+    let mut index = 0;
+    if bits.len() % 8 != 0 {
+        return Err(BinaryConversionError::new(
+            "Bit array length is not divisible by 8".to_string(),
+        ));
+    }
+    while index < bits.len() {
+        let mut byte = 0;
+        for _ in 0..8 {
+            byte *= 2;
+            byte += bits.get(index).unwrap().0;
+            index += 1;
+        }
+        bytes.push(byte);
+    }
+    Ok(bytes)
+}
+
+#[derive(Debug, Clone)]
+pub struct BinaryConversionError {
+    message: String,
+}
+
+impl BinaryConversionError {
+    fn new(message: String) -> Self {
+        BinaryConversionError { message }
+    }
+}
+
+impl fmt::Display for BinaryConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Binary conversion error")
+    }
+}
+
+impl Error for BinaryConversionError {}
