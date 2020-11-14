@@ -16,3 +16,8 @@ pub mod decoder;
 
 /// Definition of Encodable types.
 pub mod encodable;
+
+pub mod cli {
+    pub mod encoder;
+    pub mod decoder;
+}
