@@ -2,6 +2,7 @@ name: Rust
 
 on:
   push:
+    tags: '*'
     branches: [ main ]
   pull_request:
     branches: [ main ]
@@ -20,6 +21,7 @@ jobs:
       - name: Build
         run: |
           cargo build --verbose --all --release
+          strip target/release/ptero_cli
           mv target/release/ptero_cli target/release/ptero_cli_amd64
       - name: Release
         uses: softprops/action-gh-release@v1
