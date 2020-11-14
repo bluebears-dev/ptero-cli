@@ -1,4 +1,4 @@
-use std::{fmt, result};
+use std::{error::Error, fmt, result};
 
 use crate::binary::Bit;
 
@@ -85,3 +85,5 @@ impl fmt::Display for EncodingError {
         }
     }
 }
+
+impl Error for EncodingError {}
