@@ -42,3 +42,20 @@ This project ensures it is compliant with `clippy` rules. To make sure you're fi
 ## Project structure
 
 This project contains both binary package nad library. See [lib.rs](./src/lib.rs) to see module overview and [main.rs](./src/main.rs) the entry point for CLI binary package.
+
+## Scripts
+
+### Bitrate measurement
+There are two script in the [scripts](./scripts) directory which are used for measuring the bitrate.
+The one is [bitrate_for_pivot.sh](./scripts/bitrate_for_pivot.sh) which calculates the average bitrate for
+given amount of executions on random secret data, and the other one [measure_bitrate.sh](./scripts/measure_bitrate.sh) does launch measurements 
+for given pivot range in parallel, 100 executions and 30 bytes secret data.
+
+The latter one should be used to get the results. For example:
+```shell script
+./scripts/measure_bitrate.sh 10 40 &> result
+```
+
+It should be ran in the project root. Please note that there might be a case that given secret may not
+be embedded in cover text due to the cover text capacity.
+
