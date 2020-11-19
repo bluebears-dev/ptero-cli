@@ -33,21 +33,29 @@ impl Encodable for &[u8] {
                 break;
             }
 
-            debug!(
-                "Trying to encode the data to line of length {}",
-                &line.len()
-            );
-            trace!("Constructed line: {}", &line);
-
-            if !no_data_left {
-                let mut encoder = ExtendedLineEncoder::new(line_iterator.borrow_mut());
-                if let EncoderResult::NoDataLeft = encoder.encode(&mut bits, &mut line)? {
-                    debug!("No data left to encode, setting flag to true");
-                    no_data_left = true;
+            if line_iterator.borrow().peek_word().is_some() {
+                debug!(
+                    "Trying to encode the data to line of length {}",
+                    &line.len()
+                );
+                trace!("Constructed line: {}", &line);
+                if !no_data_left {
+                    let mut encoder = ExtendedLineEncoder::new(line_iterator.borrow_mut());
+                    if let EncoderResult::NoDataLeft = encoder.encode(&mut bits, &mut line)? {
+                        debug!("No data left to encode, setting flag to true");
+                        no_data_left = true;
+                    }
                 }
+            } else {
+                debug!("Last line occurred, skipping the encoding");
             }
 
             stego_text.push_str(&format!("{}\n", &line));
+        }
+        // Append the rest of possible missing cover text
+        while let Some(next_line) = line_iterator.borrow_mut().next() {
+            debug!("Appending rest");
+            stego_text.push_str(&format!("{}\n", &next_line));
         }
         if !no_data_left {
             debug!("Capacity exceeded by {} bits", bits.count());

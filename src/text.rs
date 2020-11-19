@@ -51,7 +51,12 @@ impl Iterator for LineByPivotIterator {
             line.push_str(word);
             line.push(ASCII_ENCODING_WHITESPACE);
             self.index += 1;
-            word = self.words.get(self.index)?;
+            
+            if let Some(next_word) = self.words.get(self.index) {
+                word = next_word;
+            } else {
+                return Some(line);
+            }
         }
         Some(line.trim_end().to_string())
     }
