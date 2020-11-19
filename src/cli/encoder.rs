@@ -1,7 +1,6 @@
 use std::{error::Error, fs};
 
 use clap::Clap;
-use colored::Colorize;
 use log::{error, info, warn};
 use spinners::{Spinner, Spinners};
 
