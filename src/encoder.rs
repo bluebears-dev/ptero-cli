@@ -46,6 +46,9 @@ pub trait Encoder {
         data: &mut dyn Iterator<Item = Bit>,
         line: &mut String,
     ) -> Result<EncoderResult>;
+
+    /// This method provides the amount of bits encoded per line by the encoder.
+    fn rate(&self) -> u32;
 }
 /// Enum for data encoding errors types
 #[derive(Debug, Clone)]

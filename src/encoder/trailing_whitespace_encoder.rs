@@ -39,4 +39,8 @@ impl Encoder for TrailingWhitespaceEncoder {
             _ => EncoderResult::Success,
         })
     }
+
+    fn rate(&self) -> u32 {
+        1
+    }
 }

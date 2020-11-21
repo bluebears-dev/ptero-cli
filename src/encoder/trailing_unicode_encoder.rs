@@ -109,4 +109,8 @@ where
         }
         Ok(EncoderResult::Success)
     }
+
+    fn rate(&self) -> u32 {
+        self.unicode_set.capacity() as u32
+    }
 }

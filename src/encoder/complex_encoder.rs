@@ -35,4 +35,10 @@ impl<'a> Encoder for ComplexEncoder<'a> {
         }
         Ok(is_data_still_available)
     }
+
+    fn rate(&self) -> u32 {
+        self.encoders
+            .iter()
+            .fold(0, |acc, encoder| acc + encoder.rate())
+    }
 }

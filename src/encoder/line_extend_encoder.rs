@@ -1,12 +1,12 @@
 //! # Description
-//! 
+//!
 //! This encoder extends line with extra word (to be greater than pivot) to encode bit.
 //! If the line length is greater than the pivot the bit 1 is encoded, otherwise 0.
 //!  
 //! For more info about pivot see [LineByPivotIterator](../../text/struct.LineByPivotIterator.html).
-//! 
+//!
 //! # Behavior
-//! 
+//!
 //! This encoder can return [EncodingError](../struct.EncodingError.html) when no extra words are found
 //! and the bit 1 occurs.
 use std::cell::RefMut;
@@ -56,5 +56,8 @@ where
             None => EncoderResult::NoDataLeft,
             _ => EncoderResult::Success,
         })
+    }
+    fn rate(&self) -> u32 {
+        1
     }
 }
