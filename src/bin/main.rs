@@ -1,12 +1,5 @@
 use colored::Colorize;
-use ptero::{
-    cli::decoder::decode_command,
-    cli::{
-        decoder::DecodeSubCommand,
-        encoder::{encode_command, EncodeSubCommand},
-    },
-    success,
-};
+use ptero::{cli::decoder::decode_command, cli::{capacity::GetCapacityCommand, decoder::DecodeSubCommand, encoder::{encode_command, EncodeSubCommand}, capacity::get_cover_text_capacity}, success};
 use std::{error::Error, fs::File, io::Write};
 
 use clap::Clap;
@@ -33,17 +26,18 @@ struct Opts {
 #[derive(Clap)]
 enum SubCommand {
     #[clap(name = "encode")]
-    EncodeSubCommand(EncodeSubCommand),
+    Encode(EncodeSubCommand),
     #[clap(name = "decode")]
-    DecodeSubCommand(DecodeSubCommand),
+    Decode(DecodeSubCommand),
+    #[clap(name = "capacity")]
+    GetCapacity(GetCapacityCommand),
 }
 
 fn enable_logging(verbose: u8) {
     let logging_level = match verbose {
-        0 => "error",
-        1 => "warn",
-        2 => "info",
-        3 => "debug",
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
         _ => "trace",
     };
     pretty_env_logger::formatted_builder()
@@ -65,24 +59,39 @@ fn print_logo() {
     )
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    print_logo();
-    let opts: Opts = Opts::parse();
-    enable_logging(opts.verbose);
-
-    let result = match opts.subcommand {
-        SubCommand::EncodeSubCommand(command) => encode_command(command)?,
-        SubCommand::DecodeSubCommand(command) => decode_command(command)?,
-    };
-
+fn print_result(output: Option<String>, result: Vec<u8>) -> Result<(), Box<dyn Error>> {
     success!("Finished!");
-    if let Some(path) = opts.output {
-        let mut output_file = File::create(&path).expect("Failed opening file");
+    if let Some(path) = output {
+        let mut output_file = File::create(&path)?;
         output_file.write_all(&result)?;
         success!("Saved to {}", &path);
     } else {
         success!("Printing data to stdout");
         println!("---\n{}\n---", String::from_utf8_lossy(&result).dimmed());
     }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    print_logo();
+    let opts: Opts = Opts::parse();
+    enable_logging(opts.verbose);
+
+    match opts.subcommand {
+        SubCommand::Encode(command) => {
+            let result = encode_command(command)?;
+            print_result(opts.output, result)?;
+        },
+        SubCommand::Decode(command) => {
+            let result = decode_command(command)?;
+            print_result(opts.output, result)?;
+        },
+        SubCommand::GetCapacity(command) => {
+            let capacity: u32 = get_cover_text_capacity(command)?;
+            success!("Capacity is {} bits", capacity);
+        }
+    };
+
+    
     Ok(())
 }

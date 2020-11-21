@@ -18,6 +18,7 @@ pub mod decoder;
 pub mod encodable;
 
 pub mod cli {
+    pub mod capacity;
     pub mod encoder;
     pub mod decoder;
     pub mod print;

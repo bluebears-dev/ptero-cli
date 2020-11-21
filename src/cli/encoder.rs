@@ -10,7 +10,7 @@ use crate::{binary::BitIterator, encodable::Encodable};
 #[derive(Clap)]
 pub struct EncodeSubCommand {
     /// Path to cover text used to encoding.
-    /// 
+    ///
     /// Please note that original whitespace may not be preserved!
     #[clap(short, long)]
     cover: String,
@@ -19,18 +19,22 @@ pub struct EncodeSubCommand {
     #[clap(short, long)]
     data: String,
 
-    /// Pivot i.e. line length used for extended line algorithm.binary
-    /// 
+    /// Pivot i.e. line length used for extended line algorithm.
+    ///
     /// If omitted, program will determine minimum pivot that can be used.
     #[clap(long)]
-    pivot: Option<usize>
+    pivot: Option<usize>,
 }
 
-fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
-    words.into_iter().map(|w| w.len()).max().unwrap_or(0)
+pub fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
+    words
+        .into_iter()
+        .map(|string| string.chars().count())
+        .max()
+        .unwrap_or(0)
 }
 
-pub fn encode_command(args: EncodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>>{
+pub fn encode_command(args: EncodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
     let cover_text = fs::read_to_string(args.cover)?;
     let data = fs::read(args.data)?;
     let mut pivot = determine_pivot_size(cover_text.split_whitespace());
