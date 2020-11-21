@@ -3,7 +3,7 @@ macro_rules! success {
     ( $pattern:expr, $( $x:expr ),* ) => {
         {
             use colored::*;
-            print!("{}", "SUCCESS".bold().green());
+            print!("{} ", "SUCCESS".bold().green());
             println!($pattern, $( $x ),*);
         }
     };
