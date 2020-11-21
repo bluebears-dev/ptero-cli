@@ -3,10 +3,7 @@ use std::{error::Error, fmt, result};
 use crate::binary::Bit;
 
 /// Contains complex encoders - composition of simpler ones.
-pub mod complex {
-    /// Encoder realizing extended-line steganography algorithm
-    pub mod extended_line_encoder;
-}
+pub mod complex_encoder;
 /// Encoder which adds extra word when encoding bit
 pub mod line_extend_encoder;
 /// Encoder which puts extra ASCII space when encoding bit
