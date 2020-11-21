@@ -5,6 +5,7 @@
 //!
 //! The whitespace are added at the end of the line as some of them are actually visible and might
 //! lower the imperceptibility of this method.
+use crate::binary::BitVec;
 use log::trace;
 
 use crate::binary::Bit;
@@ -77,7 +78,8 @@ where
         line: &mut String,
     ) -> Result<EncoderResult> {
         let set_capacity = self.unicode_set.capacity();
-        let number = to_number(&mut data.take(set_capacity));
+        let next_n_bits: BitVec = data.take(set_capacity).collect::<Vec<Bit>>().into();
+        let number: u32 = next_n_bits.into();
         trace!(
             "Took {} bits and assembled a number: {}",
             set_capacity,
@@ -96,13 +98,4 @@ where
         }
         Ok(EncoderResult::Success)
     }
-}
-
-fn to_number(bits: &mut dyn Iterator<Item = Bit>) -> u32 {
-    let mut number: u32 = 0;
-    for bit in bits {
-        number <<= 1;
-        number += u32::from(bit.0);
-    }
-    number
 }

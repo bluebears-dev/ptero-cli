@@ -1,52 +1,150 @@
-use std::error::Error;
-use std::{
-    fmt,
-    fs::File,
-    io::{self, BufReader, Read},
-    vec::Vec,
-};
+use std::{error::Error, convert::TryFrom};
+use std::{fmt, vec::Vec};
 
+const MOST_SIGNIFICANT_BIT_PATTERN: u8 = 0b10000000;
+const CLEARED_PATTERN: u8 = 0b00000000;
 /// Type for representing a bit.
 #[derive(Debug, PartialOrd, PartialEq, Clone)]
 pub struct Bit(pub u8);
 
+pub struct BitVec(Vec<Bit>);
+
+impl From<BitVec> for Vec<Bit> {
+    fn from(bit_vec: BitVec) -> Self {
+        bit_vec.0
+    }
+}
+
+impl From<Vec<Bit>> for BitVec {
+    fn from(bit_vec: Vec<Bit>) -> Self {
+        BitVec(bit_vec)
+    }
+}
+
+impl From<BitVec> for u32 {
+    /// Conversion implementation for `u32`.
+    /// Converts array of bits to the corresponding number. The function
+    /// expects that the first element is the most significant bit.
+    ///
+    /// # Examples
+    ///
+    /// ## Convert 5 bits to number
+    /// ```
+    /// use ptero::binary::{Bit, BitVec};
+    ///
+    /// let array: BitVec = vec![1, 0, 1, 1, 1]
+    ///                         .iter()
+    ///                         .map(|v| Bit(*v))
+    ///                         .collect::<Vec<Bit>>()
+    ///                         .into();
+    /// let number: u32 = array.into();
+    /// assert_eq!(number, 23);
+    /// ```   
+    fn from(bit_vec: BitVec) -> Self {
+        let mut number: u32 = 0;
+        for bit in bit_vec.0.into_iter() {
+            number <<= 1;
+            number += u32::from(bit.0);
+        }
+        number 
+    }
+}
+
+
+impl TryFrom<BitVec> for Vec<u8> {
+    type Error = BinaryConversionError;
+
+    /// Tries to convert array of bits to the array of bytes. The function
+    /// expects that each left most bit in byte-size boundary is the 
+    /// most significant bit.
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - reference to array of bits `&[Bit]`
+    /// 
+    /// # Behavior
+    /// 
+    /// Function return [BinaryConversionError](struct.BinaryConversionError.html) when
+    /// array is not padded to byte-size boundary i.e. length to divisible by 8. 
+    ///
+    /// # Examples
+    ///
+    /// ## Convert 16 bits to 2 bytes
+    /// ```
+    /// use ptero::binary::{Bit, BitVec, BinaryConversionError};
+    /// use std::convert::TryFrom;
+    /// 
+    /// let array: BitVec = vec![0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1]
+    ///                             .iter()
+    ///                             .map(|v| Bit(*v))
+    ///                             .collect::<Vec<Bit>>()
+    ///                             .into();
+    /// let result: Result<Vec<u8>, BinaryConversionError> = TryFrom::try_from(array);
+    /// assert!(result.is_ok());
+    /// assert_eq!(result.unwrap(), vec![42, 129]);
+    /// ```      
+    /// 
+    /// ## Return error if array is not in byte-size boundary
+    /// ```
+    /// use ptero::binary::{Bit, BinaryConversionError, BitVec};
+    /// use std::convert::TryFrom;
+    ///
+    /// let array: BitVec = vec![0, 0, 1]
+    ///                             .iter()
+    ///                             .map(|v| Bit(*v))
+    ///                             .collect::<Vec<Bit>>()
+    ///                             .into();
+    /// let result: Result<Vec<u8>, BinaryConversionError> = TryFrom::try_from(array);
+    /// assert!(!result.is_ok());
+    /// ``` 
+    fn try_from(bit_vec: BitVec) -> Result<Vec<u8>, Self::Error> {
+        let mut bytes = Vec::<u8>::default();
+        let mut index = 0;
+        if bit_vec.0.len() % 8 != 0 {
+            return Err(BinaryConversionError::new(
+                "Bit array length is not divisible by 8".to_string(),
+            ));
+        }
+        while index < bit_vec.0.len() {
+            let mut byte = 0;
+            for _ in 0..8 {
+                byte *= 2;
+                byte += bit_vec.0.get(index).unwrap().0;
+                index += 1;
+            }
+            bytes.push(byte);
+        }
+        Ok(bytes)
+    }
+}
+
+impl fmt::Display for Bit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BinaryConversionError {
+    message: String,
+}
+
+impl BinaryConversionError {
+    fn new(message: String) -> Self {
+        BinaryConversionError { message }
+    }
+}
+
+impl fmt::Display for BinaryConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Binary conversion error")
+    }
+}
+
+impl Error for BinaryConversionError {}
+
 #[derive(Debug)]
 struct BinaryPattern(u8);
-
-/// Bit sequence iterator.
-/// It enables user to read [Bits](struct.Bit.html) from any iterator that provides bytes as `u8`.
-#[derive(Debug)]
-pub struct BitIterator<'a> {
-    bytes: &'a [u8],
-    index: usize,
-    fetch_pattern: BinaryPattern,
-}
-
-/// Reads content from the file into binary data and returns it.
-/// Returns either `Vec<u8>` with the file content or `std::io::Error` when it fails.
-///
-/// # Arguments
-///
-/// * `path` - A string slice that hold path to file from which the data will be read
-///
-/// # Examples
-///
-/// ```no_run
-/// use ptero::binary::read_file_binary;
-///
-/// let result_data = read_file_binary("Cargo.toml");
-/// ```
-///
-pub fn read_file_binary(path: &str) -> io::Result<Vec<u8>> {
-    let mut binary_data = Vec::<u8>::new();
-    let file = File::open(path)?;
-    let mut buf_reader = BufReader::new(file);
-    buf_reader.read_to_end(&mut binary_data)?;
-    Ok(binary_data)
-}
-
-const MOST_SIGNIFICANT_BIT_PATTERN: u8 = 0b10000000;
-const CLEARED_PATTERN: u8 = 0b00000000;
 
 impl BinaryPattern {
     fn new() -> BinaryPattern {
@@ -71,6 +169,15 @@ impl BinaryPattern {
             _ => Bit(1),
         }
     }
+}
+
+/// Bit sequence iterator.
+/// It enables user to read [Bits](struct.Bit.html) from any iterator that provides bytes as `u8`.
+#[derive(Debug)]
+pub struct BitIterator<'a> {
+    bytes: &'a [u8],
+    index: usize,
+    fetch_pattern: BinaryPattern,
 }
 
 impl<'a> BitIterator<'a> {
@@ -137,49 +244,3 @@ impl<'a> Iterator for BitIterator<'a> {
         Some(bit)
     }
 }
-
-impl fmt::Display for Bit {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Use `self.number` to refer to each positional data point.
-        write!(f, "{}", self.0)
-    }
-}
-
-pub fn convert_to_bytes(bits: &[Bit]) -> Result<Vec<u8>, BinaryConversionError> {
-    let mut bytes = Vec::<u8>::default();
-    let mut index = 0;
-    if bits.len() % 8 != 0 {
-        return Err(BinaryConversionError::new(
-            "Bit array length is not divisible by 8".to_string(),
-        ));
-    }
-    while index < bits.len() {
-        let mut byte = 0;
-        for _ in 0..8 {
-            byte *= 2;
-            byte += bits.get(index).unwrap().0;
-            index += 1;
-        }
-        bytes.push(byte);
-    }
-    Ok(bytes)
-}
-
-#[derive(Debug, Clone)]
-pub struct BinaryConversionError {
-    message: String,
-}
-
-impl BinaryConversionError {
-    fn new(message: String) -> Self {
-        BinaryConversionError { message }
-    }
-}
-
-impl fmt::Display for BinaryConversionError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Binary conversion error")
-    }
-}
-
-impl Error for BinaryConversionError {}
