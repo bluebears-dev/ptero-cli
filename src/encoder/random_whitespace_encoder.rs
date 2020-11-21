@@ -28,7 +28,7 @@ impl Encoder for RandomWhitespaceEncoder {
             Some(Bit(1)) => {
                 let mut rng = thread_rng();
                 let position_determinant = rng.gen_range(0, &line.len());
-                let mut position = line.find(' ').unwrap_or(line.len() - 1);
+                let mut position = line.find(' ').unwrap_or_else(|| line.len());
                 for (index, character) in line.char_indices() {
                     if index > position_determinant {
                         break;
