@@ -4,7 +4,7 @@
 //! simpler encoders:
 //! * [RandomWhitespaceEncoder](../../random_whitespace_encoder/struct.RandomWhitespaceEncoder.html),
 //! * [LineExtendEncoder](../../line_extend_encoder/struct.LineExtendEncoder.html),
-//! * [TrailingUnicodeEncoder](../../trailing_whitespace_encoder/struct.TrailingWhitespaceEncoder.html).
+//! * [TrailingUnicodeEncoder](../../trailing_unicode_encoder/struct.TrailingUnicodeEncoder.html).
 //!
 //! For more info read docs on each one of the above encoders.
 //!

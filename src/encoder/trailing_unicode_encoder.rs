@@ -5,20 +5,20 @@
 //!
 //! The whitespace are added at the end of the line as some of them are actually visible and might
 //! lower the imperceptibility of this method.
+//! 
+//! The amount of bits encoded by this implementation depends on used Unicode character set. 
+//! It it at most 5 bits per line with [FULL_UNICODE_CHARACTER_SET](constant.FULL_UNICODE_CHARACTER_SET.html).
+//! 
+//! Encoder does not inform if there is not data left!
 use crate::binary::BitVec;
 use log::trace;
 
 use crate::binary::Bit;
 
 use super::{Encoder, EncoderResult, Result};
-
-const FULL_UNICODE_CHARACTER_SET: [char; 31] = [
-    '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
-    '\u{2007}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{200C}', '\u{200D}', '\u{200E}', '\u{2028}',
-    '\u{202A}', '\u{202C}', '\u{202D}', '\u{202F}', '\u{205F}', '\u{2060}', '\u{2061}', '\u{2062}',
-    '\u{2063}', '\u{2064}', '\u{2066}', '\u{2068}', '\u{2069}', '\u{3000}', '\u{FEFF}',
-];
-
+/// This trait is used for reading unicode set data
+///
+/// New sets should implement `get_set` which provides the array with unicode characters used.
 pub trait UnicodeSet {
     fn get_set(&self) -> &[char];
 
@@ -41,6 +41,16 @@ pub trait UnicodeSet {
         }
     }
 }
+
+/// Full set of used Unicode whitespace and invisible special chars - from different width spaces 
+/// to formatting chars and zero-width spaces
+pub const FULL_UNICODE_CHARACTER_SET: [char; 31] = [
+    '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
+    '\u{2007}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{200C}', '\u{200D}', '\u{200E}', '\u{2028}',
+    '\u{202A}', '\u{202C}', '\u{202D}', '\u{202F}', '\u{205F}', '\u{2060}', '\u{2061}', '\u{2062}',
+    '\u{2063}', '\u{2064}', '\u{2066}', '\u{2068}', '\u{2069}', '\u{3000}', '\u{FEFF}',
+];
+/// Struct representing the [FULL_UNICODE_CHARACTER_SET](constant.FULL_UNICODE_CHARACTER_SET.html).
 pub struct FullUnicodeSet;
 
 impl UnicodeSet for FullUnicodeSet {
@@ -49,6 +59,7 @@ impl UnicodeSet for FullUnicodeSet {
     }
 }
 
+/// Trailing unicode encoder for generic Unicode character sets.
 pub struct TrailingUnicodeEncoder<T: UnicodeSet> {
     unicode_set: T,
 }
