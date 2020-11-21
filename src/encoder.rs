@@ -11,6 +11,10 @@ pub mod random_whitespace_encoder;
 /// Encoder which puts trailing ASCII space when encoding bit
 pub mod trailing_whitespace_encoder;
 
+/// Encoder which puts trailing Unicode whitespace or invisible chars when encoding bit
+pub mod trailing_unicode_encoder;
+
+
 /// Whitespace used to encode bits
 pub const ASCII_ENCODING_WHITESPACE: char = ' ';
 

@@ -19,9 +19,9 @@ for I in $(seq 1 ${END}); do
     CMD="cargo run -- -o ${ENCODED_FILE} encode -c ${COVER_FILE} -d ${DATA_FILE} --pivot ${PIVOT}" 
 
     bash -c "${CMD}" &>/dev/null || { echo -e "#\c"; continue; }
-    COVER_FILE_SIZE=`du -b ${COVER_FILE} | cut -f1`
+    DATA_FILE_SIZE=`du -b ${DATA_FILE} | cut -f1`
     ENCODED_FILE_SIZE=`du -b ${ENCODED_FILE} | cut -f1`
-    BITRATE=`echo ${COVER_FILE_SIZE} / ${ENCODED_FILE_SIZE} | bc -l`
+    BITRATE=`echo ${DATA_FILE_SIZE} / ${ENCODED_FILE_SIZE} | bc -l`
     # Print without newline
     echo -e ".\c"
     echo $BITRATE >> ${BITRATE_FILE}
