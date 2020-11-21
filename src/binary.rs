@@ -7,6 +7,7 @@ const CLEARED_PATTERN: u8 = 0b00000000;
 #[derive(Debug, PartialOrd, PartialEq, Clone)]
 pub struct Bit(pub u8);
 
+/// Wrapper for `Vec<Bit>` used for implementing `From` trait.
 pub struct BitVec(Vec<Bit>);
 
 impl From<BitVec> for Vec<Bit> {
@@ -123,7 +124,7 @@ impl fmt::Display for Bit {
         write!(f, "{}", self.0)
     }
 }
-
+/// Error signaling binary conversion issues. Used in `From` trait implementation.
 #[derive(Debug, Clone)]
 pub struct BinaryConversionError {
     message: String,
