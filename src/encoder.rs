@@ -1,19 +1,6 @@
-use std::{error::Error, fmt, result};
+use std::{error::Error, fmt};
 
-use crate::binary::Bit;
-
-/// Contains complex encoders - composition of simpler ones.
-pub mod complex_encoder;
-/// Encoder which adds extra word when encoding bit
-pub mod line_extend_encoder;
-/// Encoder which puts extra ASCII space when encoding bit
-pub mod random_whitespace_encoder;
-/// Encoder which puts trailing ASCII space when encoding bit
-pub mod trailing_whitespace_encoder;
-
-/// Encoder which puts trailing Unicode whitespace or invisible chars when encoding bit
-pub mod trailing_unicode_encoder;
-
+use crate::{binary::Bit, context::Context};
 
 /// Whitespace used to encode bits
 pub const ASCII_ENCODING_WHITESPACE: char = ' ';
@@ -25,9 +12,6 @@ pub enum EncoderResult {
     NoDataLeft,
 }
 
-/// Result type for returning `EncodingError`
-pub type Result<T> = result::Result<T, EncodingError>;
-
 /// Base trait for all data encoders
 pub trait Encoder {
     /// Method which encodes bits provided by `data` iterator into provided `line` string.
@@ -35,6 +19,7 @@ pub trait Encoder {
     ///
     /// # Arguments
     ///
+    /// * `context` - context of the steganography method, can contain various needed info like pivot etc.
     /// * `data` - data iterator which return bit with each iteration
     /// * `line` - line string holder
     ///
@@ -43,9 +28,10 @@ pub trait Encoder {
     ///
     fn encode(
         &mut self,
+        context: &mut Context,
         data: &mut dyn Iterator<Item = Bit>,
         line: &mut String,
-    ) -> Result<EncoderResult>;
+    ) -> Result<EncoderResult, Box<dyn Error>>;
 
     /// This method provides the amount of bits encoded per line by the encoder.
     fn rate(&self) -> u32;
@@ -57,7 +43,7 @@ pub enum EncodingErrorKind {
     NoWordsLeft,
 }
 
-/// Represents every encoding error 
+/// Represents every encoding error
 #[derive(Debug, Clone)]
 pub struct EncodingError {
     kind: EncodingErrorKind,

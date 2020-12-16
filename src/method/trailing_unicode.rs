@@ -5,17 +5,20 @@
 //!
 //! The whitespace are added at the end of the line as some of them are actually visible and might
 //! lower the imperceptibility of this method.
-//! 
-//! The amount of bits encoded by this implementation depends on used Unicode character set. 
+//!
+//! The amount of bits encoded by this implementation depends on used Unicode character set.
 //! It it at most 5 bits per line with [FULL_UNICODE_CHARACTER_SET](constant.FULL_UNICODE_CHARACTER_SET.html).
-//! 
+//!
 //! Encoder does not inform if there is not data left!
-use crate::binary::BitVec;
+use std::error::Error;
+
+use crate::{binary::BitVec, context::Context, decoder::Decoder, encoder::{Encoder, EncoderResult}};
 use log::trace;
 
 use crate::binary::Bit;
 
-use super::{Encoder, EncoderResult, Result};
+use super::Method;
+
 /// This trait is used for reading unicode set data
 ///
 /// New sets should implement `get_set` which provides the array with unicode characters used.
@@ -42,7 +45,7 @@ pub trait UnicodeSet {
     }
 }
 
-/// Full set of used Unicode whitespace and invisible special chars - from different width spaces 
+/// Full set of used Unicode whitespace and invisible special chars - from different width spaces
 /// to formatting chars and zero-width spaces
 pub const FULL_UNICODE_CHARACTER_SET: [char; 31] = [
     '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
@@ -60,34 +63,35 @@ impl UnicodeSet for FullUnicodeSet {
 }
 
 /// Trailing unicode encoder for generic Unicode character sets.
-pub struct TrailingUnicodeEncoder<T: UnicodeSet> {
+pub struct TrailingUnicodeMethod<T: UnicodeSet> {
     unicode_set: T,
 }
 
-impl Default for TrailingUnicodeEncoder<FullUnicodeSet> {
+impl Default for TrailingUnicodeMethod<FullUnicodeSet> {
     fn default() -> Self {
         Self::new(FullUnicodeSet {})
     }
 }
 
-impl<T> TrailingUnicodeEncoder<T>
+impl<T> TrailingUnicodeMethod<T>
 where
     T: UnicodeSet,
 {
     pub fn new(unicode_set: T) -> Self {
-        TrailingUnicodeEncoder { unicode_set }
+        TrailingUnicodeMethod { unicode_set }
     }
 }
 
-impl<T> Encoder for TrailingUnicodeEncoder<T>
+impl<T> Encoder for TrailingUnicodeMethod<T>
 where
     T: UnicodeSet,
 {
     fn encode(
         &mut self,
+        context: &mut Context,
         data: &mut dyn Iterator<Item = Bit>,
         line: &mut String,
-    ) -> Result<EncoderResult> {
+    ) -> Result<EncoderResult, Box<dyn Error>> {
         let set_capacity = self.unicode_set.capacity();
         let next_n_bits: BitVec = data.take(set_capacity).collect::<Vec<Bit>>().into();
         let number: u32 = next_n_bits.into();
@@ -103,7 +107,7 @@ where
             );
             line.push(*character);
         }
-        // Take doesn't advance the iterator so we have to do it byy ourselves
+        // Take doesn't advance the iterator so we have to do it by ourselves
         for _ in 0..set_capacity {
             data.next();
         }
@@ -114,3 +118,11 @@ where
         self.unicode_set.capacity() as u32
     }
 }
+
+impl<T: UnicodeSet> Decoder for TrailingUnicodeMethod<T> {
+    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, crate::context::ContextError> {
+        todo!()
+    }
+}
+
+impl<T: UnicodeSet> Method for TrailingUnicodeMethod<T> {}

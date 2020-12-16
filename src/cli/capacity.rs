@@ -2,10 +2,7 @@ use clap::Clap;
 use log::{error, info, warn};
 use std::{cell::RefCell, error::Error, fs, rc::Rc};
 
-use crate::{
-    encoder::{complex_encoder::extended_line_encoder::ExtendedLineEncoderFactory, Encoder},
-    text::{LineByPivotIterator, WordIterator},
-};
+use crate::{encoder::Encoder, method::complex::extended_line::ExtendedLineMethod, text::{LineByPivotIterator, WordIterator}};
 
 use super::encoder::determine_pivot_size;
 
@@ -50,6 +47,6 @@ pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn 
         lines_count += 1;
     }
     let placeholder_ref = Rc::new(RefCell::new(text_iterator));
-    let encoder = ExtendedLineEncoderFactory::build(placeholder_ref.borrow_mut());
+    let encoder = ExtendedLineMethod::default();
     Ok(lines_count * encoder.rate())
 }

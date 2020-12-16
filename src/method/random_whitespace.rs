@@ -2,32 +2,41 @@
 //!
 //! This encoder puts [ASCII whitespace](../constant.ASCII_ENCODING_WHITESPACE.html) between randomly selected two words.
 //! If the duplicate whitespace is present the bit 1 is encoded, otherwise 0.
-use crate::binary::Bit;
+use std::error::Error;
 
-use super::{Encoder, EncoderResult, Result, ASCII_ENCODING_WHITESPACE};
+use crate::{
+    binary::Bit,
+    context::{Context, ContextError},
+    decoder::{Decoder, ASCII_DECODING_WHITESPACE},
+    encoder::{Encoder, EncoderResult, ASCII_ENCODING_WHITESPACE},
+};
+
 use log::trace;
 use rand::{thread_rng, Rng};
 
-pub struct RandomWhitespaceEncoder {}
+use super::Method;
 
-impl Default for RandomWhitespaceEncoder {
+pub struct RandomWhitespaceMethod;
+
+impl Default for RandomWhitespaceMethod {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl RandomWhitespaceEncoder {
+impl RandomWhitespaceMethod {
     pub fn new() -> Self {
-        RandomWhitespaceEncoder {}
+        RandomWhitespaceMethod {}
     }
 }
 
-impl Encoder for RandomWhitespaceEncoder {
+impl Encoder for RandomWhitespaceMethod {
     fn encode(
         &mut self,
+        context: &mut Context,
         data: &mut dyn Iterator<Item = Bit>,
         line: &mut String,
-    ) -> Result<EncoderResult> {
+    ) -> Result<EncoderResult, Box<dyn Error>> {
         Ok(match data.next() {
             Some(Bit(1)) => {
                 let mut rng = thread_rng();
@@ -53,3 +62,23 @@ impl Encoder for RandomWhitespaceEncoder {
         1
     }
 }
+
+impl Decoder for RandomWhitespaceMethod {
+    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, ContextError> {
+        let mut seen_whitespace = false;
+        for character in line.chars() {
+            let is_whitespace = character == ASCII_DECODING_WHITESPACE;
+            if seen_whitespace && is_whitespace {
+                trace!(
+                    "Found two consecutive '{}' between words",
+                    ASCII_DECODING_WHITESPACE
+                );
+                return Ok(vec![Bit(1)]);
+            }
+            seen_whitespace = is_whitespace;
+        }
+        Ok(vec![Bit(0)])
+    }
+}
+
+impl Method for RandomWhitespaceMethod {}

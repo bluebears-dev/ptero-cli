@@ -20,9 +20,11 @@ pub mod encodable;
 /// Context containing all needed data (not secret) for the steganography methods.
 pub mod context;
 
+pub mod method;
+
 pub mod cli {
     pub mod capacity;
-    pub mod encoder;
     pub mod decoder;
+    pub mod encoder;
     pub mod print;
 }

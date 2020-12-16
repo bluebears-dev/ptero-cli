@@ -6,7 +6,9 @@ use spinners::{Spinner, Spinners};
 
 use crate::{
     binary::{Bit, BitVec},
-    decoder::{complex::extended_line_decoder::ExtendedLineDecoder, Decoder},
+    context::Context,
+    decoder::Decoder,
+    method::complex::extended_line::ExtendedLineMethod,
 };
 
 /// Decode secret from the stegotext
@@ -23,12 +25,14 @@ pub struct DecodeSubCommand {
 pub fn decode_command(args: DecodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
     let sp = Spinner::new(Spinners::Dots12, "Decoding the secret".into());
     let cover_text = fs::read_to_string(args.text)?;
-    let decoder = ExtendedLineDecoder::new(args.pivot);
+    let decoder = ExtendedLineMethod::new();
+    let mut context = Context::new();
+    context.set_pivot(args.pivot);
 
     // TODO: Add Decodable trait
     let mut secret = Vec::default();
     for line in cover_text.lines() {
-        let mut data = decoder.decode(line);
+        let mut data = decoder.decode(&context, line)?;
         secret.append(&mut data);
     }
     debug!("Padding bits to byte size boundary");

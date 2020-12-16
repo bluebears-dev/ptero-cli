@@ -1,18 +1,27 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, error::Error, rc::Rc};
 
 use log::{debug, trace};
 
-use crate::{binary::BitIterator, encoder::{Encoder, EncoderResult, EncodingError, Result, complex_encoder::extended_line_encoder::ExtendedLineEncoderFactory}, text::LineByPivotIterator};
+use crate::{
+    binary::BitIterator,
+    context::Context,
+    encoder::{Encoder, EncoderResult, EncodingError},
+    method::complex::extended_line::ExtendedLineMethod,
+    text::LineByPivotIterator,
+};
 
 /// Trait describing data types which can be encoded into cover text.
 /// Contains base implementation for `&[u8]` which can be used as the starting point.
 pub trait Encodable {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String>;
+    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, Box<dyn Error>>;
 }
 
 impl Encodable for &[u8] {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String> {
+    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, Box<dyn Error>> {
         let line_iterator = Rc::new(RefCell::new(LineByPivotIterator::new(&cover_text, pivot)));
+        let mut context = Context::new();
+        context.set_pivot(pivot);
+        context.set_word_iter(line_iterator.borrow_mut());
         let mut bits = BitIterator::new(self);
         let mut stego_text = String::new();
 
@@ -33,8 +42,12 @@ impl Encodable for &[u8] {
                 );
                 trace!("Constructed line: {}", &line);
                 if !no_data_left {
-                    let mut encoder = ExtendedLineEncoderFactory::build(line_iterator.borrow_mut());
-                    if let EncoderResult::NoDataLeft = encoder.encode(&mut bits, &mut line)? {
+
+
+                    let mut encoder = ExtendedLineMethod::default();
+                    if let EncoderResult::NoDataLeft =
+                        encoder.encode(&mut context, &mut bits, &mut line)?
+                    {
                         debug!("No data left to encode, setting flag to true");
                         no_data_left = true;
                     }
@@ -55,7 +68,7 @@ impl Encodable for &[u8] {
 
         if !no_data_left {
             debug!("Capacity exceeded by {} bits", bits.count());
-            Err(EncodingError::capacity_error())
+            Err(EncodingError::capacity_error())?
         } else {
             Ok(stego_text)
         }
@@ -63,13 +76,13 @@ impl Encodable for &[u8] {
 }
 
 impl Encodable for &str {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String> {
+    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, Box<dyn Error>> {
         self.as_bytes().encode(cover_text, pivot)
     }
 }
 
 impl Encodable for Vec<u8> {
-    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String> {
+    fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, Box<dyn Error>> {
         self.as_slice().encode(cover_text, pivot)
     }
 }
