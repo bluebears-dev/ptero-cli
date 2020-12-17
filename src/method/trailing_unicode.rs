@@ -43,6 +43,14 @@ pub trait UnicodeSet {
             self.get_set().get(index - 1)
         }
     }
+
+    fn character_to_bits(&self, chr: &char) -> u32 {
+        if let Some(pos) = self.get_set().iter().position(|x| x == chr) {
+            (pos + 1) as u32
+        } else {
+            0
+        }
+    }
 }
 
 /// Full set of used Unicode whitespace and invisible special chars - from different width spaces
@@ -125,7 +133,11 @@ where
     D: Context,
 {
     fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
-        todo!()
+       if let Some(character) = context.get_current_text()?.chars().last() {
+            Ok(BitVec::from(self.unicode_set.character_to_bits(&character)).into())
+        } else {
+            Ok(BitVec::from(0 as u32).into())
+        }
     }
 }
 
