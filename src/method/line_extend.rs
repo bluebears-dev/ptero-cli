@@ -14,12 +14,7 @@ use std::error::Error;
 use log::trace;
 use regex::Regex;
 
-use crate::{
-    binary::Bit,
-    context::{Context, ContextError},
-    decoder::Decoder,
-    encoder::{Encoder, EncoderResult, EncodingError, ASCII_ENCODING_WHITESPACE},
-};
+use crate::{binary::Bit, context::{Context, ContextError, PivotDecoderContext, PivotEncoderContext}, decoder::Decoder, encoder::{Encoder, EncoderResult, EncodingError, ASCII_ENCODING_WHITESPACE}};
 
 use super::Method;
 
@@ -37,22 +32,22 @@ impl Default for LineExtendMethod {
     }
 }
 
-impl Encoder for LineExtendMethod {
+impl Encoder<PivotEncoderContext> for LineExtendMethod {
     fn encode(
         &mut self,
-        context: &mut Context,
+        context: &mut PivotEncoderContext,
         data: &mut dyn Iterator<Item = Bit>,
-        line: &mut String,
     ) -> Result<EncoderResult, Box<dyn Error>> {
         Ok(match data.next() {
             Some(Bit(1)) => {
                 let word = context
-                    .get_word_iter()?
-                    .next_word()
+                    .get_cover_text_iter_mut()
+                    .next()
                     .ok_or_else(EncodingError::no_words_error)?;
-                trace!("Extending line");
-                line.push(ASCII_ENCODING_WHITESPACE);
-                line.push_str(word.as_str());
+                trace!("Extending line with '{}'", &word);
+                let text = context.get_current_text_mut()?;
+                text.push(ASCII_ENCODING_WHITESPACE);
+                text.push_str(word.as_str());
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
@@ -64,12 +59,12 @@ impl Encoder for LineExtendMethod {
     }
 }
 
-impl Decoder for LineExtendMethod {
-    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, ContextError> {
+impl Decoder<PivotDecoderContext> for LineExtendMethod {
+    fn decode(&self, context: &PivotDecoderContext) -> Result<Vec<Bit>, ContextError> {
         let pattern = Regex::new(r"\s+").unwrap();
-        let cleaned_line = pattern.replace_all(line, " ");
-        let bit = if cleaned_line.trim_end().len() > context.get_pivot()? {
-            trace!("Line is extended over the {} length", context.get_pivot()?);
+        let cleaned_line = pattern.replace_all(context.get_current_text()?, " ");
+        let bit = if cleaned_line.trim_end().len() > context.get_pivot() {
+            trace!("Line is extended over the {} length", context.get_pivot());
             Bit(1)
         } else {
             Bit(0)
@@ -78,4 +73,4 @@ impl Decoder for LineExtendMethod {
     }
 }
 
-impl Method for LineExtendMethod {}
+impl Method<PivotEncoderContext, PivotDecoderContext> for LineExtendMethod {}

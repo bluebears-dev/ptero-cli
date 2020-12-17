@@ -24,6 +24,7 @@ fn properly_encodes(
 
     let data_text = fs::read_to_string(data_file)?;
     let decode_cmd = utils::decode_command(&PathBuf::from(&output), pivot, None);
+    println!("DATA TEXT {:?}", &data_text);
     decode_cmd?
         .assert()
         .success()

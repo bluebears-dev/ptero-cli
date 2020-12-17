@@ -12,7 +12,7 @@
 //! Encoder does not inform if there is not data left!
 use std::error::Error;
 
-use crate::{binary::BitVec, context::Context, decoder::Decoder, encoder::{Encoder, EncoderResult}};
+use crate::{binary::{BitIterator, BitVec}, context::{Context, ContextError}, decoder::Decoder, encoder::{Encoder, EncoderResult}};
 use log::trace;
 
 use crate::binary::Bit;
@@ -82,15 +82,15 @@ where
     }
 }
 
-impl<T> Encoder for TrailingUnicodeMethod<T>
+impl<T, E> Encoder<E> for TrailingUnicodeMethod<T>
 where
     T: UnicodeSet,
+    E: Context,
 {
     fn encode(
         &mut self,
-        context: &mut Context,
+        context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
-        line: &mut String,
     ) -> Result<EncoderResult, Box<dyn Error>> {
         let set_capacity = self.unicode_set.capacity();
         let next_n_bits: BitVec = data.take(set_capacity).collect::<Vec<Bit>>().into();
@@ -105,7 +105,7 @@ where
                 "Putting unicode character {:?} at the end of the line",
                 character
             );
-            line.push(*character);
+            context.get_current_text_mut()?.push(*character);
         }
         // Take doesn't advance the iterator so we have to do it by ourselves
         for _ in 0..set_capacity {
@@ -119,10 +119,20 @@ where
     }
 }
 
-impl<T: UnicodeSet> Decoder for TrailingUnicodeMethod<T> {
-    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, crate::context::ContextError> {
+impl<T, D> Decoder<D> for TrailingUnicodeMethod<T>
+where
+    T: UnicodeSet,
+    D: Context,
+{
+    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         todo!()
     }
 }
 
-impl<T: UnicodeSet> Method for TrailingUnicodeMethod<T> {}
+impl<T, E, D> Method<E, D> for TrailingUnicodeMethod<T>
+where
+    T: UnicodeSet,
+    E: Context,
+    D: Context,
+{
+}

@@ -14,4 +14,4 @@ pub mod trailing_unicode;
 
 pub mod complex;
 
-pub trait Method: Encoder + Decoder {}
+pub trait Method<E, D>: Encoder<E> + Decoder<D> {}

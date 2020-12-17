@@ -1,8 +1,10 @@
 use clap::Clap;
 use log::{error, info, warn};
-use std::{cell::RefCell, error::Error, fs, rc::Rc};
+use std::{error::Error, fs};
 
-use crate::{encoder::Encoder, method::complex::extended_line::ExtendedLineMethod, text::{LineByPivotIterator, WordIterator}};
+use crate::{
+    encoder::Encoder, method::complex::extended_line::ExtendedLineMethod, text::CoverTextWordIterator,
+};
 
 use super::encoder::determine_pivot_size;
 
@@ -20,7 +22,7 @@ pub struct GetCapacityCommand {
 
 pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn Error>> {
     let cover_text = fs::read_to_string(args.cover)?;
-    let mut text_iterator = LineByPivotIterator::new(&cover_text, args.pivot);
+    let mut text_iterator = CoverTextWordIterator::new(&cover_text);
     let mut lines_count = 0;
 
     let max_word_length = determine_pivot_size(cover_text.split_whitespace());
@@ -38,15 +40,14 @@ pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn 
         return Err("Could not determine the capacity for the given cover text".into());
     }
 
-    while let Some(line) = text_iterator.next() {
+    while let Some(line) = text_iterator.construct_line_by_pivot(args.pivot) {
         if line.is_empty() {
             error!("Pivot is too small, stopping");
             return Err("Could not determine the capacity for the given cover text".into());
         }
-        text_iterator.next_word();
+        text_iterator.next();
         lines_count += 1;
     }
-    let placeholder_ref = Rc::new(RefCell::new(text_iterator));
     let encoder = ExtendedLineMethod::default();
     Ok(lines_count * encoder.rate())
 }

@@ -51,6 +51,35 @@ impl From<BitVec> for u32 {
     }
 }
 
+impl From<u32> for BitVec {
+    /// Conversion implementation for `u32`.
+    /// Converts `u32` number to the vector of bits. 
+    /// The result vector has the most significant bit at the beginning.
+    ///
+    /// # Examples
+    ///
+    /// ## Convert the 65 number
+    /// ```
+    /// use ptero::binary::{Bit, BitVec};
+    ///
+    /// let array: BitVec = vec![1, 0, 1, 1, 1]
+    ///                         .iter()
+    ///                         .map(|v| Bit(*v))
+    ///                         .collect::<Vec<Bit>>()
+    ///                         .into();
+    /// let number: u32 = array.into();
+    /// assert_eq!(number, 23);
+    /// ```   
+    fn from(number: u32) -> Self {
+        let byte_array = [
+            ((number >> 24) & 0xff) as u8,
+            ((number >> 16) & 0xff) as u8,
+            ((number >> 8) & 0xff) as u8,
+            (number & 0xff) as u8
+        ];
+        BitIterator::new(&byte_array).collect::<Vec<Bit>>().into()
+    }
+}
 
 impl TryFrom<BitVec> for Vec<u8> {
     type Error = BinaryConversionError;

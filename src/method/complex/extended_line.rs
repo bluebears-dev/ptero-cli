@@ -10,13 +10,10 @@
 //!
 //! See also [ComplexEncoder](../struct.ComplexEncoder.html) for more info about how to use this encoder.
 
-use crate::{
-    impl_complex_decoder, impl_complex_encoder,
-    method::{line_extend, random_whitespace, trailing_whitespace, Method},
-};
+use crate::{context::{PivotDecoderContext, PivotEncoderContext}, impl_complex_decoder, impl_complex_encoder, method::{line_extend, random_whitespace, trailing_whitespace, Method}};
 
 pub struct ExtendedLineMethod {
-    methods: Vec<Box<dyn Method>>,
+    methods: Vec<Box<dyn Method<PivotEncoderContext, PivotDecoderContext>>>,
 }
 
 impl ExtendedLineMethod {
@@ -37,7 +34,7 @@ impl Default for ExtendedLineMethod {
     }
 }
 
-impl_complex_encoder!(ExtendedLineMethod);
-impl_complex_decoder!(ExtendedLineMethod);
+impl_complex_encoder!(ExtendedLineMethod, PivotEncoderContext);
+impl_complex_decoder!(ExtendedLineMethod, PivotDecoderContext);
 
-impl Method for ExtendedLineMethod {}
+impl Method<PivotEncoderContext, PivotDecoderContext> for ExtendedLineMethod {}

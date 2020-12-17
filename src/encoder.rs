@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use crate::{binary::Bit, context::Context};
+use crate::{binary::Bit};
 
 /// Whitespace used to encode bits
 pub const ASCII_ENCODING_WHITESPACE: char = ' ';
@@ -13,7 +13,7 @@ pub enum EncoderResult {
 }
 
 /// Base trait for all data encoders
-pub trait Encoder {
+pub trait Encoder<E> {
     /// Method which encodes bits provided by `data` iterator into provided `line` string.
     /// It may change the line in process e.g. add some additional characters.
     ///
@@ -28,9 +28,8 @@ pub trait Encoder {
     ///
     fn encode(
         &mut self,
-        context: &mut Context,
+        context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
-        line: &mut String,
     ) -> Result<EncoderResult, Box<dyn Error>>;
 
     /// This method provides the amount of bits encoded per line by the encoder.

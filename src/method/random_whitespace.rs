@@ -30,19 +30,22 @@ impl RandomWhitespaceMethod {
     }
 }
 
-impl Encoder for RandomWhitespaceMethod {
+impl<T> Encoder<T> for RandomWhitespaceMethod
+where
+    T: Context,
+{
     fn encode(
         &mut self,
-        context: &mut Context,
+        context: &mut T,
         data: &mut dyn Iterator<Item = Bit>,
-        line: &mut String,
     ) -> Result<EncoderResult, Box<dyn Error>> {
         Ok(match data.next() {
             Some(Bit(1)) => {
                 let mut rng = thread_rng();
-                let position_determinant = rng.gen_range(0, &line.len());
-                let mut position = line.find(' ').unwrap_or_else(|| line.len());
-                for (index, character) in line.char_indices() {
+                let text = context.get_current_text_mut()?;
+                let position_determinant = rng.gen_range(0, &text.len());
+                let mut position = text.find(' ').unwrap_or_else(|| text.len());
+                for (index, character) in text.char_indices() {
                     if index > position_determinant {
                         break;
                     }
@@ -51,7 +54,7 @@ impl Encoder for RandomWhitespaceMethod {
                     }
                 }
                 trace!("Putting space at position {}", position);
-                line.insert_str(position, &String::from(ASCII_ENCODING_WHITESPACE));
+                text.insert_str(position, &String::from(ASCII_ENCODING_WHITESPACE));
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
@@ -63,10 +66,13 @@ impl Encoder for RandomWhitespaceMethod {
     }
 }
 
-impl Decoder for RandomWhitespaceMethod {
-    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, ContextError> {
+impl<D> Decoder<D> for RandomWhitespaceMethod
+where
+    D: Context,
+{
+    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         let mut seen_whitespace = false;
-        for character in line.chars() {
+        for character in context.get_current_text()?.chars() {
             let is_whitespace = character == ASCII_DECODING_WHITESPACE;
             if seen_whitespace && is_whitespace {
                 trace!(
@@ -81,4 +87,9 @@ impl Decoder for RandomWhitespaceMethod {
     }
 }
 
-impl Method for RandomWhitespaceMethod {}
+impl<E, D> Method<E, D> for RandomWhitespaceMethod
+where
+    E: Context,
+    D: Context,
+{
+}

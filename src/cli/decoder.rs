@@ -1,15 +1,10 @@
 use std::{convert::TryFrom, error::Error, fs};
 
 use clap::Clap;
-use log::debug;
+use log::{debug, trace};
 use spinners::{Spinner, Spinners};
 
-use crate::{
-    binary::{Bit, BitVec},
-    context::Context,
-    decoder::Decoder,
-    method::complex::extended_line::ExtendedLineMethod,
-};
+use crate::{binary::{Bit, BitVec}, context::{Context, PivotDecoderContext}, decoder::Decoder, method::complex::extended_line::ExtendedLineMethod};
 
 /// Decode secret from the stegotext
 #[derive(Clap)]
@@ -26,13 +21,14 @@ pub fn decode_command(args: DecodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>>
     let sp = Spinner::new(Spinners::Dots12, "Decoding the secret".into());
     let cover_text = fs::read_to_string(args.text)?;
     let decoder = ExtendedLineMethod::new();
-    let mut context = Context::new();
-    context.set_pivot(args.pivot);
+    let mut context = PivotDecoderContext::new(cover_text.as_str(), args.pivot);
 
     // TODO: Add Decodable trait
     let mut secret = Vec::default();
-    for line in cover_text.lines() {
-        let mut data = decoder.decode(&context, line)?;
+    debug!("Decoding secret from the text");
+    while let Ok(line) = context.load_line() {
+        trace!("Line {}", line);
+        let mut data = decoder.decode(&context)?;
         secret.append(&mut data);
     }
     debug!("Padding bits to byte size boundary");

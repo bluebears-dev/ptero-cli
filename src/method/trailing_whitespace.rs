@@ -30,17 +30,21 @@ impl TrailingWhitespaceMethod {
     }
 }
 
-impl Encoder for TrailingWhitespaceMethod {
+impl<E> Encoder<E> for TrailingWhitespaceMethod
+where
+    E: Context,
+{
     fn encode(
         &mut self,
-        context: &mut Context,
+        context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
-        line: &mut String,
     ) -> Result<EncoderResult, Box<dyn Error>> {
         Ok(match data.next() {
             Some(Bit(1)) => {
                 trace!("Putting whitespace at the end of the line");
-                line.push(ASCII_ENCODING_WHITESPACE);
+                context
+                    .get_current_text_mut()?
+                    .push(ASCII_ENCODING_WHITESPACE);
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
@@ -53,9 +57,15 @@ impl Encoder for TrailingWhitespaceMethod {
     }
 }
 
-impl Decoder for TrailingWhitespaceMethod {
-    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, ContextError> {
-        let bit = if line.ends_with(ASCII_DECODING_WHITESPACE) {
+impl<D> Decoder<D> for TrailingWhitespaceMethod
+where
+    D: Context,
+{
+    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
+        let bit = if context
+            .get_current_text()?
+            .ends_with(ASCII_DECODING_WHITESPACE)
+        {
             trace!("Found trailing whitespace");
             Bit(1)
         } else {
@@ -65,4 +75,9 @@ impl Decoder for TrailingWhitespaceMethod {
     }
 }
 
-impl Method for TrailingWhitespaceMethod {}
+impl<E, D> Method<E, D> for TrailingWhitespaceMethod
+where
+    E: Context,
+    D: Context,
+{
+}

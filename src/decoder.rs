@@ -1,13 +1,13 @@
 use crate::{
     binary::Bit,
-    context::{Context, ContextError},
+    context::{ContextError},
 };
 
 /// Whitespace character used for decoding
 pub const ASCII_DECODING_WHITESPACE: char = ' ';
 
 /// Base trait for all data decoders
-pub trait Decoder {
+pub trait Decoder<D> {
     /// Method which decodes bits possibly encoded in `line` string.
     ///
     /// # Arguments
@@ -18,5 +18,5 @@ pub trait Decoder {
     /// # Returns
     /// It returns data decoded from the provided `line`.
     ///
-    fn decode(&self, context: &Context, line: &str) -> Result<Vec<Bit>, ContextError>;
+    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError>;
 }

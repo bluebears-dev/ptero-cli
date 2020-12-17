@@ -1,57 +1,127 @@
-use std::{cell::RefMut, error::Error, fmt};
+use std::{
+    error::Error,
+    fmt,
+};
 
-use crate::text::WordIterator;
+use crate::text::{CoverTextLineIterator, CoverTextWordIterator};
 
-type RefMutWordIterator<'a> = RefMut<'a, >;
-pub struct Context<'a> {
-    pivot: Option<usize>,
-    word_iter: &'a dyn WordIterator,
+pub trait Context {
+    fn get_current_text_mut(&mut self) -> Result<&mut String, ContextError>;
+
+    fn get_current_text(&self) -> Result<&String, ContextError>;
+
+    fn load_line(&mut self) -> Result<&String, ContextError>;
 }
 
-impl<'a> Context<'a> {
-    pub fn new() -> Self {
-        Context {
-            pivot: None,
-            word_iter: None,
+pub struct PivotDecoderContext {
+    pivot: usize,
+    cover_text_iter: CoverTextLineIterator,
+    current_text: Option<String>,
+}
+
+pub struct PivotEncoderContext {
+    pivot: usize,
+    cover_text_iter: CoverTextWordIterator,
+    current_text: Option<String>,
+}
+
+impl PivotDecoderContext {
+    pub fn new(cover_text: &str, pivot: usize) -> Self {
+        PivotDecoderContext {
+            pivot,
+            cover_text_iter: CoverTextLineIterator::new(cover_text),
+            current_text: None,
         }
     }
 
-    pub fn set_pivot(&mut self, pivot: usize) {
-        self.pivot = Some(pivot);
+    pub fn get_pivot(&self) -> usize {
+        self.pivot
+    }
+}
+
+impl PivotEncoderContext {
+    pub fn new(cover_text: &str, pivot: usize) -> Self {
+        PivotEncoderContext {
+            pivot,
+            cover_text_iter: CoverTextWordIterator::new(cover_text),
+            current_text: None,
+        }
     }
 
-    pub fn set_word_iter(&mut self, word_iter: RefMutWordIterator<'a>) {
-        self.word_iter = Some(word_iter);
+    pub fn get_pivot(&self) -> usize {
+        self.pivot
     }
 
-    pub fn get_pivot(&self) -> Result<usize, ContextError> {
-        self.pivot.ok_or(ContextError::new("pivot".to_string()))
+    pub fn get_cover_text_iter_mut(&mut self) -> &mut CoverTextWordIterator {
+        &mut self.cover_text_iter
+    }
+}
+
+impl Context for PivotEncoderContext {
+    fn get_current_text_mut(&mut self) -> Result<&mut String, ContextError> {
+        self.current_text
+            .as_mut()
+            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
     }
 
-    pub fn get_word_iter(&self) -> Result<RefMutWordIterator<'a>, ContextError> {
-        self.word_iter
-            .ok_or(ContextError::new("word_iter".to_string()))
+    fn get_current_text(&self) -> Result<&String, ContextError> {
+        self.current_text
+            .as_ref()
+            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+    }
+
+    fn load_line(&mut self) -> Result<&String, ContextError> {
+        self.current_text = self
+            .cover_text_iter
+            .construct_line_by_pivot(self.get_pivot());
+        self.current_text
+            .as_ref()
+            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+    }
+}
+
+impl Context for PivotDecoderContext {
+    fn get_current_text_mut(&mut self) -> Result<&mut String, ContextError> {
+        self.current_text
+            .as_mut()
+            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+    }
+
+    fn get_current_text(&self) -> Result<&String, ContextError> {
+        self.current_text
+            .as_ref()
+            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+    }
+
+    fn load_line(&mut self) -> Result<&String, ContextError> {
+        self.current_text = self.cover_text_iter.next().map(|x| x.to_string());
+        self.current_text
+            .as_ref()
+            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
     }
 }
 
 #[derive(Debug)]
+enum ContextErrorKind {
+    NoTextLeft,
+}
+
+#[derive(Debug)]
 pub struct ContextError {
-    missing_prop: String,
+    kind: ContextErrorKind,
 }
 
 impl ContextError {
-    fn new(missing_prop: String) -> Self {
-        ContextError { missing_prop }
+    fn new(kind: ContextErrorKind) -> Self {
+        ContextError { kind }
     }
 }
 
 impl fmt::Display for ContextError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Incomplete context. Trying to access {} while it's not set.",
-            self.missing_prop
-        )
+        match self.kind {
+            ContextErrorKind::NoTextLeft => write!(f, "No cover text left.",),
+        }
     }
 }
 

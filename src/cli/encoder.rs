@@ -29,7 +29,7 @@ pub struct EncodeSubCommand {
 pub fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
     words
         .into_iter()
-        .map(|string| string.chars().count())
+        .map(|string| string.chars().count() + 1)
         .max()
         .unwrap_or(0)
 }

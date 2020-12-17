@@ -10,12 +10,9 @@
 // //!
 // //! See also [ComplexEncoder](../struct.ComplexEncoder.html) for more info about how to use this encoder.
 
-use crate::{
-    impl_complex_decoder, impl_complex_encoder,
-    method::{line_extend, random_whitespace, trailing_unicode, Method},
-};
+use crate::{context::{PivotDecoderContext, PivotEncoderContext}, impl_complex_decoder, impl_complex_encoder, method::{line_extend, random_whitespace, trailing_unicode, Method}};
 pub struct ELUVMethod {
-    methods: Vec<Box<dyn Method>>,
+    methods: Vec<Box<dyn Method<PivotEncoderContext, PivotDecoderContext>>>,
 }
 
 impl ELUVMethod {
@@ -36,7 +33,7 @@ impl Default for ELUVMethod {
     }
 }
 
-impl_complex_encoder!(ELUVMethod);
-impl_complex_decoder!(ELUVMethod);
+impl_complex_encoder!(ELUVMethod, PivotEncoderContext);
+impl_complex_decoder!(ELUVMethod, PivotDecoderContext);
 
-impl Method for ELUVMethod {}
+impl Method<PivotEncoderContext, PivotDecoderContext> for ELUVMethod {}
