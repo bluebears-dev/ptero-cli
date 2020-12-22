@@ -1,14 +1,12 @@
-use std::process;
-
-use log::error;
-
-use crate::encoder::ASCII_ENCODING_WHITESPACE;
+/// Cover text iterator which traverses the text word by word.
+/// It also enables the user to peek the word without forwarding the iterator.
 #[derive(Debug)]
 pub struct CoverTextWordIterator {
     words: Vec<String>,
     word_index: usize,
 }
 
+/// Cover text iterator which traverses the text line by line.
 #[derive(Debug)]
 pub struct CoverTextLineIterator {
     lines: Vec<String>,
@@ -28,32 +26,10 @@ impl CoverTextWordIterator {
         }
     }
 
-    pub fn peek_word(&self) -> Option<String> {
+    pub fn peek(&self) -> Option<String> {
         self.words
             .get(self.word_index)
             .map(|string| string.to_owned())
-    }
-
-    pub fn construct_line_by_pivot(&mut self, pivot: usize) -> Option<String> {
-        let mut word = self.words.get(self.word_index)?;
-
-        if word.len() > pivot {
-            error!("Pivot is to small! Stuck at word of length {}.", word.len());
-            process::exit(1);
-        }
-        let mut line = String::new();
-        while line.len() + word.len() <= pivot {
-            line.push_str(word);
-            line.push(ASCII_ENCODING_WHITESPACE);
-            self.word_index += 1;
-
-            if let Some(next_word) = self.words.get(self.word_index) {
-                word = next_word;
-            } else {
-                return Some(line);
-            }
-        }
-        Some(line.trim_end().to_string())
     }
 }
 
@@ -61,7 +37,7 @@ impl Iterator for CoverTextWordIterator {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let word = self.peek_word()?;
+        let word = self.peek()?;
         self.word_index += 1;
         Some(word)
     }

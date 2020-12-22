@@ -1,6 +1,10 @@
 pub mod eluv;
 pub mod extended_line;
 
+/// Macro for implementing the [Encoder](crate::encoder::Encoder) trait for
+/// complex methods. It assumes that method is only composed by other methods.
+///
+/// Requires the method to have `methods` field being vector containing type [Encoder](crate::encoder::Encoder).
 #[macro_export]
 macro_rules! impl_complex_encoder {
     ($t:ident, $c:ident) => {
@@ -31,6 +35,10 @@ macro_rules! impl_complex_encoder {
     };
 }
 
+/// Macro for implementing the [Decoder](crate::decoder::Decoder) trait for
+/// complex methods. It assumes that method is only composed by other methods.
+///
+/// Requires the method to have `methods` field being vector containing type [Decoder](crate::decoder::Decoder).
 #[macro_export]
 macro_rules! impl_complex_decoder {
     ($t:ident, $c:ident) => {

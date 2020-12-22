@@ -1,21 +1,28 @@
 //! # Description
 //!
-//! This encoder puts [ASCII whitespace](../constant.ASCII_ENCODING_WHITESPACE.html) between randomly selected two words.
+//! This method puts [ASCII_WHITESPACE] between randomly selected two words.
 //! If the duplicate whitespace is present the bit 1 is encoded, otherwise 0.
 use std::error::Error;
 
 use crate::{
     binary::Bit,
     context::{Context, ContextError},
-    decoder::{Decoder, ASCII_DECODING_WHITESPACE},
-    encoder::{Encoder, EncoderResult, ASCII_ENCODING_WHITESPACE},
+    decoder::{Decoder},
+    encoder::{Encoder, EncoderResult},
 };
 
 use log::trace;
 use rand::{thread_rng, Rng};
 
+/// Character used as the random whitespace in the method.
+pub const ASCII_WHITESPACE: char = ' ';
+
 use super::Method;
 
+/// Unit structure representing the random whitespace method.
+/// Implements both [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits.
+///
+/// Accepts any [Context](crate::context::Context).
 pub struct RandomWhitespaceMethod;
 
 impl Default for RandomWhitespaceMethod {
@@ -54,7 +61,7 @@ where
                     }
                 }
                 trace!("Putting space at position {}", position);
-                text.insert_str(position, &String::from(ASCII_ENCODING_WHITESPACE));
+                text.insert_str(position, &String::from(ASCII_WHITESPACE));
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
@@ -73,11 +80,11 @@ where
     fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         let mut seen_whitespace = false;
         for character in context.get_current_text()?.chars() {
-            let is_whitespace = character == ASCII_DECODING_WHITESPACE;
+            let is_whitespace = character == ASCII_WHITESPACE;
             if seen_whitespace && is_whitespace {
                 trace!(
                     "Found two consecutive '{}' between words",
-                    ASCII_DECODING_WHITESPACE
+                    ASCII_WHITESPACE,
                 );
                 return Ok(vec![Bit(1)]);
             }

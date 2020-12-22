@@ -1,19 +1,19 @@
 //! # Description
 //!
-//! This encoder implements the Extender Line steganography algorithm. It consist of three
-//! simpler encoders:
-//! * [RandomWhitespaceEncoder](../../random_whitespace_encoder/struct.RandomWhitespaceEncoder.html),
-//! * [LineExtendEncoder](../../line_extend_encoder/struct.LineExtendEncoder.html),
-//! * [TrailingWhitespaceEncoder](../../trailing_whitespace_encoder/struct.TrailingWhitespaceEncoder.html).
+//! This method implements the *Extended Line* steganography algorithm. It consist of three
+//! simpler methods:
+//! * [RandomWhitespaceMethod](crate::method::random_whitespace::RandomWhitespaceMethod),
+//! * [LineExtendMethod](crate::method::line_extend::LineExtendMethod),
+//! * [TrailingWhitespaceMethod](crate::trailing_whitespace::TrailingWhitespaceMethod).
 //!
 //! For more info read docs on each one of the above encoders.
-//!
-//! See also [ComplexEncoder](../struct.ComplexEncoder.html) for more info about how to use this encoder.
 
-use crate::{context::{PivotDecoderContext, PivotEncoderContext}, impl_complex_decoder, impl_complex_encoder, method::{line_extend, random_whitespace, trailing_whitespace, Method}};
+use crate::{context::{PivotByRawLineContext, PivotByLineContext}, impl_complex_decoder, impl_complex_encoder, method::{line_extend, random_whitespace, trailing_whitespace, Method}};
 
+/// Structure representing the Extended Line algorithm. 
+/// Contains the vector of used methods. Uses macros to implement the required traits. 
 pub struct ExtendedLineMethod {
-    methods: Vec<Box<dyn Method<PivotEncoderContext, PivotDecoderContext>>>,
+    methods: Vec<Box<dyn Method<PivotByLineContext, PivotByRawLineContext>>>,
 }
 
 impl ExtendedLineMethod {
@@ -34,7 +34,7 @@ impl Default for ExtendedLineMethod {
     }
 }
 
-impl_complex_encoder!(ExtendedLineMethod, PivotEncoderContext);
-impl_complex_decoder!(ExtendedLineMethod, PivotDecoderContext);
+impl_complex_encoder!(ExtendedLineMethod, PivotByLineContext);
+impl_complex_decoder!(ExtendedLineMethod, PivotByRawLineContext);
 
-impl Method<PivotEncoderContext, PivotDecoderContext> for ExtendedLineMethod {}
+impl Method<PivotByLineContext, PivotByRawLineContext> for ExtendedLineMethod {}

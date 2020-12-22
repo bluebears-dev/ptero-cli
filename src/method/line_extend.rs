@@ -14,10 +14,23 @@ use std::error::Error;
 use log::trace;
 use regex::Regex;
 
-use crate::{binary::Bit, context::{Context, ContextError, PivotDecoderContext, PivotEncoderContext}, decoder::Decoder, encoder::{Encoder, EncoderResult, EncodingError, ASCII_ENCODING_WHITESPACE}};
+use crate::{
+    binary::Bit,
+    context::{Context, ContextError, PivotByLineContext, PivotByRawLineContext},
+    decoder::Decoder,
+    encoder::{Encoder, EncoderResult, EncodingError},
+};
 
 use super::Method;
 
+/// Character used as the word delimiter.
+pub const ASCII_DELIMITER: char = ' ';
+
+/// Unit structure representing the line extension method.
+/// 
+/// Accepts only following contexts: [PivotByLineContext](crate::context::PivotByLineContext) for [Encoder](crate::encoder::Encoder) trait and
+// [PivotByRawLineContext](crate::context::PivotByRawLineContext) for [Decoder](crate::decoder::Decoder) trait.
+// *Decoder needs to consume raw lines to be able to decode information using pivot.*
 pub struct LineExtendMethod;
 
 impl LineExtendMethod {
@@ -32,21 +45,19 @@ impl Default for LineExtendMethod {
     }
 }
 
-impl Encoder<PivotEncoderContext> for LineExtendMethod {
+impl Encoder<PivotByLineContext> for LineExtendMethod {
     fn encode(
         &mut self,
-        context: &mut PivotEncoderContext,
+        context: &mut PivotByLineContext,
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>> {
         Ok(match data.next() {
             Some(Bit(1)) => {
-                let word = context
-                    .get_cover_text_iter_mut()
-                    .next()
-                    .ok_or_else(EncodingError::no_words_error)?;
+                // TODO: Provide mapping for ContextError -> EncodingError
+                let word = context.next_word().ok_or(EncodingError::no_words_error())?;
                 trace!("Extending line with '{}'", &word);
                 let text = context.get_current_text_mut()?;
-                text.push(ASCII_ENCODING_WHITESPACE);
+                text.push(ASCII_DELIMITER);
                 text.push_str(word.as_str());
                 EncoderResult::Success
             }
@@ -59,8 +70,8 @@ impl Encoder<PivotEncoderContext> for LineExtendMethod {
     }
 }
 
-impl Decoder<PivotDecoderContext> for LineExtendMethod {
-    fn decode(&self, context: &PivotDecoderContext) -> Result<Vec<Bit>, ContextError> {
+impl Decoder<PivotByRawLineContext> for LineExtendMethod {
+    fn decode(&self, context: &PivotByRawLineContext) -> Result<Vec<Bit>, ContextError> {
         let pattern = Regex::new(r"\s+").unwrap();
         let cleaned_line = pattern.replace_all(context.get_current_text()?, " ");
         let bit = if cleaned_line.trim_end().len() > context.get_pivot() {
@@ -73,4 +84,4 @@ impl Decoder<PivotDecoderContext> for LineExtendMethod {
     }
 }
 
-impl Method<PivotEncoderContext, PivotDecoderContext> for LineExtendMethod {}
+impl Method<PivotByLineContext, PivotByRawLineContext> for LineExtendMethod {}

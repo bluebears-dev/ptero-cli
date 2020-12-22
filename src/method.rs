@@ -1,17 +1,19 @@
 use crate::{decoder::Decoder, encoder::Encoder};
 
-/// Encoder which puts extra ASCII space when encoding bit
+/// Method which adds extra ASCII space when encoding bit
 pub mod random_whitespace;
 
-/// Encoder which puts trailing ASCII space when encoding bit
+/// Method  which puts trailing ASCII space when encoding bit
 pub mod trailing_whitespace;
 
-/// Encoder which adds extra word when encoding bit
+/// Method which adds extra word when encoding bit (uses pivot, which informs about expected max line length)
 pub mod line_extend;
 
-/// Encoder which puts trailing Unicode whitespace or invisible chars when encoding bit
+/// Method which puts trailing Unicode whitespace or invisible chars when encoding bit
 pub mod trailing_unicode;
 
+/// Module containing complex methods. Complex usually means combination of several other methods.
 pub mod complex;
 
+/// Combination of [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits - each method should be able to encode and decode.
 pub trait Method<E, D>: Encoder<E> + Decoder<D> {}

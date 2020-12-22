@@ -24,7 +24,7 @@ impl From<Vec<Bit>> for BitVec {
 
 impl From<BitVec> for u32 {
     /// Conversion implementation for `u32`.
-    /// Converts array of bits to the corresponding number. The function
+    /// Converts array of [Bits](Bit) to the corresponding number. The function
     /// expects that the first element is the most significant bit.
     ///
     /// # Examples
@@ -53,7 +53,7 @@ impl From<BitVec> for u32 {
 
 impl From<u32> for BitVec {
     /// Conversion implementation for `u32`.
-    /// Converts `u32` number to the vector of bits. 
+    /// Converts `u32` number to the vector of [Bits](Bit). 
     /// The result vector has the most significant bit at the beginning.
     ///
     /// # Examples
@@ -84,7 +84,7 @@ impl From<u32> for BitVec {
 impl TryFrom<BitVec> for Vec<u8> {
     type Error = BinaryConversionError;
 
-    /// Tries to convert array of bits to the array of bytes. The function
+    /// Tries to convert array of [Bits](Bit) to the array of bytes. The function
     /// expects that each left most bit in byte-size boundary is the 
     /// most significant bit.
     ///
@@ -94,7 +94,7 @@ impl TryFrom<BitVec> for Vec<u8> {
     /// 
     /// # Behavior
     /// 
-    /// Function return [BinaryConversionError](struct.BinaryConversionError.html) when
+    /// Function return [BinaryConversionError] when
     /// array is not padded to byte-size boundary i.e. length to divisible by 8. 
     ///
     /// # Examples
@@ -201,8 +201,8 @@ impl BinaryPattern {
     }
 }
 
-/// Bit sequence iterator.
-/// It enables user to read [Bits](struct.Bit.html) from any iterator that provides bytes as `u8`.
+/// [Bit] sequence iterator.
+/// It enables user to read [Bits](Bit) from any iterator that provides bytes as `u8`.
 #[derive(Debug)]
 pub struct BitIterator<'a> {
     bytes: &'a [u8],
@@ -211,7 +211,7 @@ pub struct BitIterator<'a> {
 }
 
 impl<'a> BitIterator<'a> {
-    /// Creates a bit iterator for specified byte array.
+    /// Creates a [Bit] iterator for specified byte array.
     ///
     /// **Please note that it begins iteration from the MSB.**
     ///

@@ -17,9 +17,10 @@ pub mod decoder;
 /// Definition of Encodable types.
 pub mod encodable;
 
-/// Context containing all needed data (not secret) for the steganography methods.
+/// Context containing all needed data (e.g. access to cover text) for the steganography methods.
 pub mod context;
 
+/// Module containing all the available methods for text steganography. 
 pub mod method;
 
 pub mod cli {

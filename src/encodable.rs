@@ -2,7 +2,7 @@ use std::{error::Error};
 
 use log::{debug};
 
-use crate::{binary::BitIterator, context::{Context, PivotEncoderContext}, encoder::{Encoder, EncoderResult, EncodingError}, method::complex::extended_line::ExtendedLineMethod};
+use crate::{binary::BitIterator, context::{Context, PivotByLineContext}, encoder::{Encoder, EncoderResult, EncodingError}, method::complex::extended_line::ExtendedLineMethod};
 
 /// Trait describing data types which can be encoded into cover text.
 /// Contains base implementation for `&[u8]` which can be used as the starting point.
@@ -12,14 +12,14 @@ pub trait Encodable {
 
 impl Encodable for &[u8] {
     fn encode(&self, cover_text: &str, pivot: usize) -> Result<String, Box<dyn Error>> {
-        let mut context = PivotEncoderContext::new(cover_text, pivot);
+        let mut context = PivotByLineContext::new(cover_text, pivot);
         let mut bits = BitIterator::new(self);
         let mut stego_text = String::new();
 
         let mut no_data_left = false;
         while !no_data_left {
             let mut encoder = ExtendedLineMethod::default();
-            context.load_line()?;
+            context.load_text()?;
             if let EncoderResult::NoDataLeft = encoder.encode(&mut context, &mut bits)? {
                 debug!("No data left to encode, setting flag to true");
                 no_data_left = true;
@@ -29,7 +29,7 @@ impl Encodable for &[u8] {
         }
         // Append the rest of possible missing cover text
         let mut appended_line_count = 0;
-        while let Ok(line) = context.load_line() {
+        while let Ok(line) = context.load_text() {
             appended_line_count += 1;
             stego_text.push_str(&format!("{}\n", &line));
         }

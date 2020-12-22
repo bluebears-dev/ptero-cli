@@ -3,20 +3,21 @@ use crate::{
     context::{ContextError},
 };
 
-/// Whitespace character used for decoding
-pub const ASCII_DECODING_WHITESPACE: char = ' ';
-
-/// Base trait for all data decoders
+// TODO: Provide DecoderError and mapping from ContextError
+/// Base trait for all data decoders.
+/// The generic type should contain data need by the decoder implementation.
 pub trait Decoder<D> {
-    /// Method which decodes bits possibly encoded in `line` string.
+    /// Decodes bits from the cover text.
+    /// The access to the cover text is bound by the [Context].
     ///
     /// # Arguments
     ///
-    /// * `line` - line containing part of the stegotext
-    /// * `pivot` - pivot used to encode data
+    /// * `context` - context of the steganography method, can contain various needed info like pivot etc.
     ///
     /// # Returns
-    /// It returns data decoded from the provided `line`.
+    /// It returns `Result`, either decoded data as as vector of [Bits] or error.
     ///
+    /// [Context]: crate::context::Context
+    /// [Bit]: crate::binary::Bit
     fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError>;
 }

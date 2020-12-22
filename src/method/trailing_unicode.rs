@@ -1,41 +1,54 @@
 //! # Description
 //!
-//! This encoder encodes n-bits using available set of unicode whitespace. Larger sets provide better capacity
+//! This method encodes n-bits using available set of unicode whitespace. Larger sets provide better capacity
 //! but might not work for every channel - it depends which characters get sanitized or are actually used.
 //!
 //! The whitespace are added at the end of the line as some of them are actually visible and might
 //! lower the imperceptibility of this method.
 //!
 //! The amount of bits encoded by this implementation depends on used Unicode character set.
-//! It it at most 5 bits per line with [FULL_UNICODE_CHARACTER_SET](constant.FULL_UNICODE_CHARACTER_SET.html).
+//! It it at most 5 bits per line with [FULL_UNICODE_CHARACTER_SET].
 //!
 //! Encoder does not inform if there is not data left!
 use std::error::Error;
 
-use crate::{binary::{BitIterator, BitVec}, context::{Context, ContextError}, decoder::Decoder, encoder::{Encoder, EncoderResult}};
+use crate::{
+    binary::BitVec,
+    context::{Context, ContextError},
+    decoder::Decoder,
+    encoder::{Encoder, EncoderResult},
+};
 use log::trace;
 
 use crate::binary::Bit;
 
 use super::Method;
 
-/// This trait is used for reading unicode set data
+/// This trait is used for reading unicode set data.
 ///
-/// New sets should implement `get_set` which provides the array with unicode characters used.
+/// New sets should implement `get_set` which provides the array with
+/// unicode characters used by the method.
 pub trait UnicodeSet {
+    /// # Returns
+    /// Returns the array of characters representing the Unicode characters that should be used by the method.
+    /// The size of the array should be a power od 2. This is a requirement to be able to encode integer amount of bits.
     fn get_set(&self) -> &[char];
 
     fn size(&self) -> usize {
         self.get_set().len()
     }
+
+    /// # Returns
+    /// Returns the capacity of the set. 
+    /// By capacity it means the amount of bits that can possibly be encoded using this set.
     fn capacity(&self) -> usize {
         let amount_of_bits = std::mem::size_of::<usize>() * 8;
         amount_of_bits - self.size().leading_zeros() as usize
     }
 
-    fn get_character(&self, number: u32) -> Option<&char> {
-        let index = number as usize;
-        if number == 0 {
+    fn get_character(&self, index: u32) -> Option<&char> {
+        let index = index as usize;
+        if index == 0 {
             None
         } else if index > self.size() {
             panic!("Too large number for given unicode set - cannot encode this amount of bits");
@@ -44,6 +57,10 @@ pub trait UnicodeSet {
         }
     }
 
+    /// # Returns
+    /// Number represented by the character. 
+    /// The number is the bit representation of the character - or in other words the index.
+    /// If the character is not recognized it returns 0 by default.
     fn character_to_bits(&self, chr: &char) -> u32 {
         if let Some(pos) = self.get_set().iter().position(|x| x == chr) {
             (pos + 1) as u32
@@ -54,14 +71,14 @@ pub trait UnicodeSet {
 }
 
 /// Full set of used Unicode whitespace and invisible special chars - from different width spaces
-/// to formatting chars and zero-width spaces
+/// to formatting chars and zero-width spaces.
 pub const FULL_UNICODE_CHARACTER_SET: [char; 31] = [
     '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
     '\u{2007}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{200C}', '\u{200D}', '\u{200E}', '\u{2028}',
     '\u{202A}', '\u{202C}', '\u{202D}', '\u{202F}', '\u{205F}', '\u{2060}', '\u{2061}', '\u{2062}',
     '\u{2063}', '\u{2064}', '\u{2066}', '\u{2068}', '\u{2069}', '\u{3000}', '\u{FEFF}',
 ];
-/// Struct representing the [FULL_UNICODE_CHARACTER_SET](constant.FULL_UNICODE_CHARACTER_SET.html).
+/// Unit struct representing the [FULL_UNICODE_CHARACTER_SET].
 pub struct FullUnicodeSet;
 
 impl UnicodeSet for FullUnicodeSet {
@@ -71,6 +88,10 @@ impl UnicodeSet for FullUnicodeSet {
 }
 
 /// Trailing unicode encoder for generic Unicode character sets.
+/// It uses the [UnicodeSet] to get the character given the n-bits 
+/// (where n is the binary logarithm of the set size).
+///
+/// Accepts any [Context](crate::context::Context).
 pub struct TrailingUnicodeMethod<T: UnicodeSet> {
     unicode_set: T,
 }
@@ -133,7 +154,7 @@ where
     D: Context,
 {
     fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
-       if let Some(character) = context.get_current_text()?.chars().last() {
+        if let Some(character) = context.get_current_text()?.chars().last() {
             Ok(BitVec::from(self.unicode_set.character_to_bits(&character)).into())
         } else {
             Ok(BitVec::from(0 as u32).into())

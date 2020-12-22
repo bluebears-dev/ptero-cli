@@ -1,9 +1,8 @@
 use std::{error::Error, fmt};
 
-use crate::{binary::Bit};
+use crate::binary::Bit;
 
 /// Whitespace used to encode bits
-pub const ASCII_ENCODING_WHITESPACE: char = ' ';
 
 /// Possible results of data encoding
 #[derive(Debug, Clone)]
@@ -12,20 +11,24 @@ pub enum EncoderResult {
     NoDataLeft,
 }
 
-/// Base trait for all data encoders
+/// Base trait for all data encoders.
+/// The generic type should contain data need by the encoder implementation.
 pub trait Encoder<E> {
-    /// Method which encodes bits provided by `data` iterator into provided `line` string.
-    /// It may change the line in process e.g. add some additional characters.
+    /// Encodes bits provided by `data` iterator.
+    /// Every Encoder has Context which exposes access to cover text. See [Context] for more info.
     ///
     /// # Arguments
     ///
     /// * `context` - context of the steganography method, can contain various needed info like pivot etc.
-    /// * `data` - data iterator which return bit with each iteration
-    /// * `line` - line string holder
+    /// * `data` - data iterator which return [Bit] with each iteration
     ///
     /// # Returns
-    /// It returns whether the encoding was successful. See [EncoderResult](enum.EncoderResult.html) and [EncodingError](struct.EncodingError.html).
+    /// It returns whether the encoding was successful. See [EncoderResult] and [EncodingError].
     ///
+    /// [Context]: crate::context::Context
+    /// [EncoderResult]: EncoderResult
+    /// [EncodingError]: EncodingError
+    /// [Bit]: crate::binary::Bit
     fn encode(
         &mut self,
         context: &mut E,
@@ -42,20 +45,20 @@ pub enum EncodingErrorKind {
     NoWordsLeft,
 }
 
-/// Represents every encoding error
+/// Represents encoding error. Concrete error if differentiated by the [EncodingErrorKind](EncodingErrorKind)
 #[derive(Debug, Clone)]
 pub struct EncodingError {
     kind: EncodingErrorKind,
 }
 
 impl EncodingError {
-    /// Facade for creating [EncodingErrorKind::CapacityTooLow](enum.EncodingErrorKind.html)
+    /// Facade for creating [CapacityTooLow](EncodingErrorKind) error.
     pub fn capacity_error() -> Self {
         EncodingError {
             kind: EncodingErrorKind::CapacityTooLow,
         }
     }
-    /// Facade for creating [EncodingErrorKind::NoWordsLeft](enum.EncodingErrorKind.html)
+    /// Facade for creating [NoWordsLeft](EncodingErrorKind) error.
     pub fn no_words_error() -> Self {
         EncodingError {
             kind: EncodingErrorKind::NoWordsLeft,
