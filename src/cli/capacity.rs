@@ -42,6 +42,7 @@ pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn 
         return Err("Could not determine the capacity for the given cover text".into());
     }
 
+    info!("Calculating the capacity");
     while let Ok(line) = pivot_word_context.load_text() {
         if line.is_empty() {
             error!("Pivot is too small, stopping");

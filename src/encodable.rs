@@ -21,7 +21,7 @@ impl Encodable for &[u8] {
             let mut encoder = ExtendedLineMethod::default();
             context.load_text()?;
             if let EncoderResult::NoDataLeft = encoder.encode(&mut context, &mut bits)? {
-                debug!("No data left to encode, setting flag to true");
+                debug!("No data left to encode, stopping");
                 no_data_left = true;
             }
             let line = context.get_current_text()?;

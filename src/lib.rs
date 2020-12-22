@@ -27,5 +27,5 @@ pub mod cli {
     pub mod capacity;
     pub mod decoder;
     pub mod encoder;
-    pub mod print;
+    pub mod writer;
 }

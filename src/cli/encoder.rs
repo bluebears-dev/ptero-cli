@@ -2,7 +2,6 @@ use std::{error::Error, fs};
 
 use clap::Clap;
 use log::{error, info, warn};
-use spinners::{Spinner, Spinners};
 
 use crate::{binary::BitIterator, encodable::Encodable};
 
@@ -45,17 +44,16 @@ pub fn encode_command(args: EncodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>>
             return Err("stub".into());
         }
         pivot = user_pivot;
+        info!("Using user provided pivot: {}", pivot);
+    } else {
+        info!("Using pivot based on the cover text: {}", pivot);
     }
 
     warn!(
         "Required cover text capacity: {}",
         BitIterator::new(&data).count()
     );
-    info!("Using pivot: {}", pivot);
-
-    let sp = Spinner::new(Spinners::Dots12, "Encoding the data".into());
+    info!("Encoding secret data");
     let stego_result = data.encode(&cover_text, pivot);
-    sp.stop();
-    println!();
     Ok(stego_result?.as_bytes().into())
 }

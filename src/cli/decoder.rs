@@ -2,9 +2,13 @@ use std::{convert::TryFrom, error::Error, fs};
 
 use clap::Clap;
 use log::{debug, trace};
-use spinners::{Spinner, Spinners};
 
-use crate::{binary::{Bit, BitVec}, context::{Context, PivotByRawLineContext}, decoder::Decoder, method::complex::extended_line::ExtendedLineMethod};
+use crate::{
+    binary::{Bit, BitVec},
+    context::{Context, PivotByRawLineContext},
+    decoder::Decoder,
+    method::complex::extended_line::ExtendedLineMethod,
+};
 
 /// Decode secret from the stegotext
 #[derive(Clap)]
@@ -18,7 +22,6 @@ pub struct DecodeSubCommand {
 }
 
 pub fn decode_command(args: DecodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
-    let sp = Spinner::new(Spinners::Dots12, "Decoding the secret".into());
     let cover_text = fs::read_to_string(args.text)?;
     let decoder = ExtendedLineMethod::new();
     let mut context = PivotByRawLineContext::new(cover_text.as_str(), args.pivot);
@@ -35,8 +38,7 @@ pub fn decode_command(args: DecodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>>
     while &secret.len() % 8 != 0 {
         secret.push(Bit(0));
     }
-    sp.stop();
-    println!();
+
     debug!("Converting bits to bytes");
     let bit_vec: BitVec = secret.into();
     let bytes: Vec<u8> = TryFrom::try_from(bit_vec)?;
