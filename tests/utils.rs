@@ -1,15 +1,27 @@
 use std::{error::Error, path::PathBuf, sync::Once};
 
 use assert_cmd::Command;
+use log::LevelFilter;
 use serde_json::Value;
 
 static INIT: Once = Once::new();
 
 pub fn global_setup() {
     INIT.call_once(|| {
-        pretty_env_logger::formatted_builder()
-            .parse_filters("debug")
-            .init();
+        fern::Dispatch::new()
+            .format(move |out, message, record| {
+                out.finish(format_args!(
+                    "{}[{}][{}] - {}",
+                    chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                    &record.target(),
+                    &record.level(),
+                    message,
+                ));
+            })
+            .level(LevelFilter::Trace)
+            .chain(std::io::stdout())
+            .apply()
+            .unwrap();
     });
 }
 
@@ -45,7 +57,11 @@ pub fn run_encode_command(
     Ok(json_struct)
 }
 
-pub fn run_decode_command(stego_text: &PathBuf, pivot: usize, output_path: Option<&PathBuf>) -> Result<Value, Box<dyn Error>> {
+pub fn run_decode_command(
+    stego_text: &PathBuf,
+    pivot: usize,
+    output_path: Option<&PathBuf>,
+) -> Result<Value, Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
     if let Some(path) = output_path {
         cmd.arg("-o").arg(path);

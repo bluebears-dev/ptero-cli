@@ -12,6 +12,7 @@ use ptero::{
         encoder::{encode_command, EncodeSubCommand},
         writer::get_writer,
     },
+    log::{get_file_logger, get_stdout_logger, verbosity_to_level_filter},
 };
 
 const BANNER: &str = r#"
@@ -48,8 +49,15 @@ struct Opts {
     /// By default only error logs are printed.
     #[clap(short, parse(from_occurrences))]
     verbose: u8,
+    /// If present, will print the output of the CLI in JSON format that can be further parsed by other tooling.
     #[clap(long)]
     json: bool,
+    /// Path to log file.
+    ///
+    /// By default CLI won't save any logs. If this param is used, CLI will append new logs at the end of the file
+    /// pointed by the path. It is not affected by the `verbose` flag, and saves all the entries (starting from `TRACE`).
+    #[clap(long)]
+    log_file: Option<String>,
 }
 
 #[derive(Clap)]
@@ -62,16 +70,21 @@ enum SubCommand {
     GetCapacity(GetCapacityCommand),
 }
 
-fn enable_logging(verbose: u8) {
-    let logging_level = match verbose {
-        0 => "info",
-        1 => "debug",
-        _ => "trace",
+fn enable_logging(
+    verbose: u8,
+    log_path: Option<String>,
+) -> std::result::Result<(), Box<dyn Error>> {
+    let level_filter = verbosity_to_level_filter(verbose);
+    let mut log_builder = fern::Dispatch::new().chain(get_stdout_logger(level_filter));
+
+    log_builder = if let Some(path) = log_path {
+        log_builder.chain(get_file_logger(&path))
+    } else {
+        log_builder
     };
 
-    pretty_env_logger::formatted_builder()
-        .parse_filters(logging_level)
-        .init();
+    log_builder.apply()?;
+    Ok(())
 }
 
 fn run_subcommand(subcommand: SubCommand) -> Result<String, Box<dyn Error>> {
@@ -95,7 +108,7 @@ fn run_subcommand(subcommand: SubCommand) -> Result<String, Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     let opts: Opts = Opts::parse();
 
-    enable_logging(opts.verbose);
+    enable_logging(opts.verbose, opts.log_file)?;
     let writer = get_writer(opts.json);
     writer.message(BANNER);
 

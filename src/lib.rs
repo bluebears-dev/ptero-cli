@@ -23,6 +23,9 @@ pub mod context;
 /// Module containing all the available methods for text steganography. 
 pub mod method;
 
+/// Logger utilities.
+pub mod log;
+
 pub mod cli {
     pub mod capacity;
     pub mod decoder;
