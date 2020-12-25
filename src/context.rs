@@ -122,13 +122,13 @@ impl Context for PivotByLineContext {
     fn get_current_text_mut(&mut self) -> Result<&mut String, ContextError> {
         self.current_text
             .as_mut()
-            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+            .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 
     fn get_current_text(&self) -> Result<&String, ContextError> {
         self.current_text
             .as_ref()
-            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+            .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 
     // Loads the line considering the pivot. Line length is smaller or equal the pivot value.
@@ -140,7 +140,7 @@ impl Context for PivotByLineContext {
         self.current_text = self.construct_line_by_pivot();
         self.current_text
             .as_ref()
-            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+            .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 }
 
@@ -148,13 +148,13 @@ impl Context for PivotByRawLineContext {
     fn get_current_text_mut(&mut self) -> Result<&mut String, ContextError> {
         self.current_text
             .as_mut()
-            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+            .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 
     fn get_current_text(&self) -> Result<&String, ContextError> {
         self.current_text
             .as_ref()
-            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+            .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 
     // Loads the raw line. By raw it means preserving the whitespace
@@ -162,10 +162,10 @@ impl Context for PivotByRawLineContext {
     // # Returns
     // Result which is either the line or [ContextError] if anything fails. 
     fn load_text(&mut self) -> Result<&String, ContextError> {
-        self.current_text = self.cover_text_iter.next().map(|x| x.to_string());
+        self.current_text = self.cover_text_iter.next();
         self.current_text
             .as_ref()
-            .ok_or(ContextError::new(ContextErrorKind::NoTextLeft))
+            .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 }
 

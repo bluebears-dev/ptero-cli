@@ -37,7 +37,7 @@ impl Encodable for &[u8] {
 
         if !no_data_left {
             debug!("Capacity exceeded by {} bits", bits.count());
-            Err(EncodingError::capacity_error())?
+            Err(EncodingError::capacity_error().into())
         } else {
             Ok(stego_text)
         }

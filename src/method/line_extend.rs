@@ -54,7 +54,7 @@ impl Encoder<PivotByLineContext> for LineExtendMethod {
         Ok(match data.next() {
             Some(Bit(1)) => {
                 // TODO: Provide mapping for ContextError -> EncodingError
-                let word = context.next_word().ok_or(EncodingError::no_words_error())?;
+                let word = context.next_word().ok_or_else(EncodingError::no_words_error)?;
                 trace!("Extending line with '{}'", &word);
                 let text = context.get_current_text_mut()?;
                 text.push(ASCII_DELIMITER);
