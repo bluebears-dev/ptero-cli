@@ -1,75 +1,55 @@
-use predicates::prelude::*;
-use std::{error::Error, fs, path::PathBuf};
+use log::{debug, info};
+use utils::{global_setup, run_encode_command};
+use std::{error::Error, fs, panic, path::PathBuf};
 
 mod utils;
 
-fn properly_encodes(
-    cover: &str,
-    data: &str,
-    output: &str,
-    pivot: usize,
-) -> Result<(), Box<dyn Error>> {
+#[test]
+fn does_not_fail_when_encoding_over_ascii_cover() -> Result<(), Box<dyn Error>> {
+    global_setup();
     let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let encoding_output = PathBuf::from(&output);
     res_dir.push("resources");
+    let data_path = res_dir.join("data.txt");
+    let cover_path = res_dir.join("cover/cover_ascii.txt");
 
-    let data_file = res_dir.join(&data);
-    let encode_cmd = utils::encode_command(
-        &res_dir.join(&cover),
-        &data_file,
-        Some(pivot),
-        Some(encoding_output.to_str().unwrap()),
-    );
-    encode_cmd?.assert().success();
-
-    let data_text = fs::read_to_string(data_file)?;
-    let decode_cmd = utils::decode_command(&PathBuf::from(&output), pivot, None);
-    println!("DATA TEXT {:?}", &data_text);
-    decode_cmd?
-        .assert()
-        .success()
-        .stdout(predicate::str::contains(data_text));
+    debug!("Encoding to JSON format");
+    let json_struct = run_encode_command(&cover_path, &data_path, 50, None)?;
+    assert_eq!(json_struct["type"].as_str(), Some("success"));
     Ok(())
 }
 
-fn output_is_not_malformed(
-    cover: &str,
-    data: &str,
-    output: &str,
-    pivot: usize,
-) -> Result<(), Box<dyn Error>> {
+#[test]
+fn does_not_fail_when_encoding_over_uft8_cover() -> Result<(), Box<dyn Error>> {
+    global_setup();
     let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let encoding_output = PathBuf::from(&output);
     res_dir.push("resources");
+    let data_path = res_dir.join("data.txt");
+    let cover_path = res_dir.join("cover/cover_utf8.txt");
 
-    let data_file = res_dir.join(&data);
-    let encode_cmd = utils::encode_command(
-        &res_dir.join(&cover),
-        &data_file,
-        Some(pivot),
-        Some(encoding_output.to_str().unwrap()),
-    );
-    encode_cmd?.assert().success();
+    debug!("Encoding to JSON format");
+    let json_struct = run_encode_command(&cover_path, &data_path, 50, None)?;
+    assert_eq!(json_struct["type"].as_str(), Some("success"));
+    Ok(())
+}
+
+#[test]
+fn encoding_output_is_not_malformed_utf8_when_saving_to_file() -> Result<(), Box<dyn Error>> {
+    global_setup();
+    let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let encoding_output = PathBuf::from("encode_out");
+    res_dir.push("resources");
+    let data_path = res_dir.join("data.txt");
+    let cover_path = res_dir.join("cover/cover_utf8.txt");
+
+    debug!("Encoding and saving to file");
+    run_encode_command(&cover_path, &data_path, 50, Some(&encoding_output))?;
+
+    info!("Reading UTF-8 from output stego text");
     let encoded_text = fs::read(&encoding_output)?;
     String::from_utf8(encoded_text)?;
+
+    debug!("Removing the '{:?}' file", &encoding_output);
+    fs::remove_file(&encoding_output)?;
     Ok(())
 }
 
-#[test]
-fn output_is_not_malformed_ascii() -> Result<(), Box<dyn Error>> {
-    output_is_not_malformed("cover/cover_ascii.txt", "data.txt", "encode_out", 50)
-}
-
-#[test]
-fn properly_encodes_on_cover_ascii() -> Result<(), Box<dyn Error>> {
-    properly_encodes("cover/cover_ascii.txt", "data.txt", "encode_out", 50)
-}
-#[test]
-fn output_is_not_malformed_utf8() -> Result<(), Box<dyn Error>> {
-    output_is_not_malformed("cover/cover_utf8.txt", "data.txt", "encode_out", 50)
-}
-
-#[test]
-fn properly_encodes_on_cover_utf8() -> Result<(), Box<dyn Error>> {
-    properly_encodes("cover/cover_utf8.txt", "data.txt", "encode_out", 50)
-}

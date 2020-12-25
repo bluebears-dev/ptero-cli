@@ -1,64 +1,72 @@
-use std::{error::Error, fmt::Display, path::PathBuf};
+use std::{error::Error, path::PathBuf, sync::Once};
 
 use assert_cmd::Command;
+use serde_json::Value;
 
-pub const CLI_BIN_NAME: &str = "ptero_cli";
+static INIT: Once = Once::new();
 
-fn generic_command(args: &[&str]) -> Result<Command, Box<dyn Error>> {
-    let mut cmd = Command::cargo_bin(CLI_BIN_NAME)?;
-    cmd.args(args);
-
-    Ok(cmd)
+pub fn global_setup() {
+    INIT.call_once(|| {
+        pretty_env_logger::formatted_builder()
+            .parse_filters("debug")
+            .init();
+    });
 }
 
-fn construct_optional_arg<T: Display>(flag: &str, value: Option<T>) -> Option<String> {
-    value.map(|out| format!("{} {}", flag, out))
-}
-
-pub fn encode_command(
+pub fn run_encode_command(
     cover_path: &PathBuf,
     data_path: &PathBuf,
-    pivot: Option<usize>,
-    output: Option<&str>,
-) -> Result<Command, Box<dyn Error>> {
-    let mut arguments = vec![];
-    let out_arg = construct_optional_arg("-o", output);
-    if let Some(arg) = &out_arg {
-        arguments.extend(arg.split(' '));
+    pivot: usize,
+    output_path: Option<&PathBuf>,
+) -> Result<Value, Box<dyn Error>> {
+    let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
+    if let Some(path) = output_path {
+        cmd.arg("-o").arg(path);
     }
-    arguments.extend_from_slice(&[
-        "encode",
-        "-c",
-        cover_path.to_str().unwrap(),
-        "-d",
-        data_path.to_str().unwrap(),
-    ]);
-    let pivot_arg = construct_optional_arg("--pivot", pivot);
-    if let Some(arg) = &pivot_arg {
-        arguments.extend(arg.split(' '));
-    }
+    let assert = cmd
+        .arg("--json")
+        .arg("encode")
+        .arg("-c")
+        .arg(&cover_path)
+        .arg("-d")
+        .arg(&data_path)
+        .arg("--pivot")
+        .arg(format!("{}", pivot))
+        .assert()
+        .success();
 
-    return generic_command(arguments.as_slice());
+    let json_out = String::from_utf8_lossy(&assert.get_output().stdout);
+    let json_struct: Value = if output_path.is_some() {
+        serde_json::from_str("{}")?
+    } else {
+        serde_json::from_str(&json_out)?
+    };
+
+    Ok(json_struct)
 }
 
-pub fn decode_command(
-    stego_text_path: &PathBuf,
-    pivot: usize,
-    output: Option<&str>,
-) -> Result<Command, Box<dyn Error>> {
-    let mut arguments = vec![];
-    let out_arg = construct_optional_arg("-o", output);
-    if let Some(arg) = &out_arg {
-        arguments.extend(arg.split(' '));
+pub fn run_decode_command(stego_text: &PathBuf, pivot: usize, output_path: Option<&PathBuf>) -> Result<Value, Box<dyn Error>> {
+    let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
+    if let Some(path) = output_path {
+        cmd.arg("-o").arg(path);
     }
-    let pivot_str = pivot.to_string();
-    arguments.extend_from_slice(&[
-        "decode",
-        "-t",
-        stego_text_path.to_str().unwrap(),
-        "--pivot",
-        pivot_str.as_str(),
-    ]);
+    let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
+    let assert = cmd
+        .arg("--json")
+        .arg("decode")
+        .arg("-t")
+        .arg(&stego_text)
+        .arg("--pivot")
+        .arg(format!("{}", pivot))
+        .assert()
+        .success();
 
-    return generic_command(arguments.as_slice());
+    let json_out = String::from_utf8_lossy(&assert.get_output().stdout);
+    let json_struct: Value = if output_path.is_some() {
+        serde_json::from_str("{}")?
+    } else {
+        serde_json::from_str(&json_out)?
+    };
+
+    Ok(json_struct)
 }
