@@ -1,9 +1,12 @@
-use std::{convert::TryFrom, error::Error, fs};
+use std::{error::Error, fs};
 
 use clap::Clap;
-use log::{debug, trace};
 
-use crate::{binary::{Bit, BitVec}, context::{Context, PivotByRawLineContext}, decoder::Decoder, method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod}};
+use crate::{
+    context::PivotByRawLineContext,
+    decoder::Decoder,
+    method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
+};
 
 /// Decode secret from the stegotext
 #[derive(Clap)]
