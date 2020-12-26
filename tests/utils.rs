@@ -34,10 +34,12 @@ pub fn run_encode_command(
     let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
     if let Some(path) = output_path {
         cmd.arg("-o").arg(path);
+    } else {
+        cmd.arg("--json");
     }
     let assert = cmd
-        .arg("--json")
         .arg("encode")
+        .arg("--eline")
         .arg("-c")
         .arg(&cover_path)
         .arg("-d")
@@ -65,11 +67,12 @@ pub fn run_decode_command(
     let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
     if let Some(path) = output_path {
         cmd.arg("-o").arg(path);
+    } else {
+        cmd.arg("--json");
     }
-    let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
     let assert = cmd
-        .arg("--json")
         .arg("decode")
+        .arg("--eline")
         .arg("-t")
         .arg(&stego_text)
         .arg("--pivot")

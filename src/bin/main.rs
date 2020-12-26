@@ -6,11 +6,8 @@ use log::info;
 use ptero::{
     cli::decoder::decode_command,
     cli::{
-        capacity::get_cover_text_capacity,
-        capacity::GetCapacityCommand,
-        decoder::DecodeSubCommand,
-        encoder::{encode_command, EncodeSubCommand},
-        writer::get_writer,
+        capacity::get_cover_text_capacity, capacity::GetCapacityCommand, decoder::DecodeSubCommand,
+        encoder::EncodeSubCommand, writer::get_writer,
     },
     log::{get_file_logger, get_stdout_logger, verbosity_to_level_filter},
 };
@@ -69,7 +66,7 @@ struct Opts {
 enum SubCommand {
     #[clap(name = "encode", group = ArgGroup::new("method_args").required(true))]
     Encode(EncodeSubCommand),
-    #[clap(name = "decode")]
+    #[clap(name = "decode", group = ArgGroup::new("method_args").required(true))]
     Decode(DecodeSubCommand),
     #[clap(name = "capacity")]
     GetCapacity(GetCapacityCommand),
@@ -95,7 +92,7 @@ fn enable_logging(
 fn run_subcommand(subcommand: SubCommand) -> Result<String, Box<dyn Error>> {
     let result: String = match subcommand {
         SubCommand::Encode(command) => {
-            let result = encode_command(command)?;
+            let result = command.run()?;
             String::from_utf8_lossy(&result).into()
         }
         SubCommand::Decode(command) => {

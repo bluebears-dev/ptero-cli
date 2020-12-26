@@ -18,7 +18,7 @@ use crate::{
     decoder::Decoder,
     encoder::{Encoder, EncoderResult},
 };
-use log::trace;
+use log::{trace};
 
 use crate::binary::Bit;
 
@@ -39,7 +39,7 @@ pub trait UnicodeSet {
     }
 
     /// # Returns
-    /// Returns the capacity of the set. 
+    /// Returns the capacity of the set.
     /// By capacity it means the amount of bits that can possibly be encoded using this set.
     fn capacity(&self) -> usize {
         let amount_of_bits = std::mem::size_of::<usize>() * 8;
@@ -58,7 +58,7 @@ pub trait UnicodeSet {
     }
 
     /// # Returns
-    /// Number represented by the character. 
+    /// Number represented by the character.
     /// The number is the bit representation of the character - or in other words the index.
     /// If the character is not recognized it returns 0 by default.
     fn character_to_bits(&self, chr: &char) -> u32 {
@@ -88,7 +88,7 @@ impl UnicodeSet for FullUnicodeSet {
 }
 
 /// Trailing unicode encoder for generic Unicode character sets.
-/// It uses the [UnicodeSet] to get the character given the n-bits 
+/// It uses the [UnicodeSet] to get the character given the n-bits
 /// (where n is the binary logarithm of the set size).
 ///
 /// Accepts any [Context](crate::context::Context).
@@ -116,8 +116,8 @@ where
     T: UnicodeSet,
     E: Context,
 {
-    fn encode(
-        &mut self,
+    fn partial_encode(
+        &self,
         context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>> {
@@ -153,7 +153,7 @@ where
     T: UnicodeSet,
     D: Context,
 {
-    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
+    fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         if let Some(character) = context.get_current_text()?.chars().last() {
             Ok(BitVec::from(self.unicode_set.character_to_bits(&character)).into())
         } else {

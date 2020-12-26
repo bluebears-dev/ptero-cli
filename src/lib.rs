@@ -14,9 +14,6 @@ pub mod encoder;
 /// Contains stegotext decoders.
 pub mod decoder;
 
-/// Definition of Encodable types.
-pub mod encodable;
-
 /// Context containing all needed data (e.g. access to cover text) for the steganography methods.
 pub mod context;
 

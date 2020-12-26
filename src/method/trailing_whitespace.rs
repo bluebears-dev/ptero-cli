@@ -7,14 +7,9 @@
 
 use std::error::Error;
 
-use log::trace;
+use log::{trace};
 
-use crate::{
-    binary::Bit,
-    context::{Context, ContextError},
-    decoder::Decoder,
-    encoder::{Encoder, EncoderResult},
-};
+use crate::{binary::{Bit}, context::{Context, ContextError}, decoder::Decoder, encoder::{Encoder, EncoderResult}};
 
 /// Character used as the trailing whitespace in the method.
 pub const ASCII_WHITESPACE: char = ' ';
@@ -41,8 +36,8 @@ impl<E> Encoder<E> for TrailingWhitespaceMethod
 where
     E: Context,
 {
-    fn encode(
-        &mut self,
+    fn partial_encode(
+        &self,
         context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>> {
@@ -56,6 +51,7 @@ where
             _ => EncoderResult::Success,
         })
     }
+    
 
     fn rate(&self) -> u32 {
         1
@@ -66,7 +62,7 @@ impl<D> Decoder<D> for TrailingWhitespaceMethod
 where
     D: Context,
 {
-    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
+    fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         let bit = if context.get_current_text()?.ends_with(ASCII_WHITESPACE) {
             trace!("Found trailing whitespace");
             Bit(1)

@@ -1,4 +1,4 @@
-use crate::{decoder::Decoder, encoder::Encoder};
+use crate::{context::Context, decoder::Decoder, encoder::Encoder};
 
 /// Method which adds extra ASCII space when encoding bit
 pub mod random_whitespace;
@@ -16,4 +16,9 @@ pub mod trailing_unicode;
 pub mod complex;
 
 /// Combination of [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits - each method should be able to encode and decode.
-pub trait Method<E, D>: Encoder<E> + Decoder<D> {}
+pub trait Method<E, D>: Encoder<E> + Decoder<D>
+where
+    E: Context,
+    D: Context,
+{
+}

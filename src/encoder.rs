@@ -1,8 +1,8 @@
 use std::{error::Error, fmt};
 
-use crate::binary::Bit;
+use log::debug;
 
-/// Whitespace used to encode bits
+use crate::{binary::Bit, context::Context};
 
 /// Possible results of data encoding
 #[derive(Debug, Clone)]
@@ -13,7 +13,10 @@ pub enum EncoderResult {
 
 /// Base trait for all data encoders.
 /// The generic type should contain data need by the encoder implementation.
-pub trait Encoder<E> {
+pub trait Encoder<E>
+where
+    E: Context,
+{
     /// Encodes bits provided by `data` iterator.
     /// Every Encoder has Context which exposes access to cover text. See [Context] for more info.
     ///
@@ -29,15 +32,49 @@ pub trait Encoder<E> {
     /// [EncoderResult]: EncoderResult
     /// [EncodingError]: EncodingError
     /// [Bit]: crate::binary::Bit
-    fn encode(
-        &mut self,
+    fn partial_encode(
+        &self,
         context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>>;
 
+    fn encode(
+        &self,
+        context: &mut E,
+        data: &mut dyn Iterator<Item = Bit>,
+    ) -> Result<String, Box<dyn Error>> {
+        let mut stego_text = String::new();
+
+        let mut no_data_left = false;
+        while !no_data_left {
+            context.load_text()?;
+            if let EncoderResult::NoDataLeft = self.partial_encode(context, data)? {
+                debug!("No data left to encode, stopping");
+                no_data_left = true;
+            }
+            let line = context.get_current_text()?;
+            stego_text.push_str(&format!("{}\n", &line));
+        }
+        // Append the rest of possible missing cover text
+        let mut appended_line_count = 0;
+        while let Ok(line) = context.load_text() {
+            appended_line_count += 1;
+            stego_text.push_str(&format!("{}\n", &line));
+        }
+        debug!("Appended the {} of left lines", appended_line_count);
+
+        if !no_data_left {
+            debug!("Capacity exceeded by {} bits", data.count());
+            Err(EncodingError::capacity_error().into())
+        } else {
+            Ok(stego_text)
+        }
+    }
+
     /// This method provides the amount of bits encoded per line by the encoder.
     fn rate(&self) -> u32;
 }
+
 /// Enum for data encoding errors types
 #[derive(Debug, Clone)]
 pub enum EncodingErrorKind {

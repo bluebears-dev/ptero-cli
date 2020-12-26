@@ -7,11 +7,11 @@ use std::error::Error;
 use crate::{
     binary::Bit,
     context::{Context, ContextError},
-    decoder::{Decoder},
+    decoder::Decoder,
     encoder::{Encoder, EncoderResult},
 };
 
-use log::trace;
+use log::{trace};
 use rand::{thread_rng, Rng};
 
 /// Character used as the random whitespace in the method.
@@ -41,8 +41,8 @@ impl<T> Encoder<T> for RandomWhitespaceMethod
 where
     T: Context,
 {
-    fn encode(
-        &mut self,
+    fn partial_encode(
+        &self,
         context: &mut T,
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>> {
@@ -77,15 +77,12 @@ impl<D> Decoder<D> for RandomWhitespaceMethod
 where
     D: Context,
 {
-    fn decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
+    fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         let mut seen_whitespace = false;
         for character in context.get_current_text()?.chars() {
             let is_whitespace = character == ASCII_WHITESPACE;
             if seen_whitespace && is_whitespace {
-                trace!(
-                    "Found two consecutive '{}' between words",
-                    ASCII_WHITESPACE,
-                );
+                trace!("Found two consecutive '{}' between words", ASCII_WHITESPACE,);
                 return Ok(vec![Bit(1)]);
             }
             seen_whitespace = is_whitespace;
