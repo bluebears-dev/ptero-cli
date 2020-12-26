@@ -1,6 +1,6 @@
 use std::{error::Error, fs::File, io::Write};
 
-use clap::Clap;
+use clap::{ArgGroup, Clap};
 use log::info;
 
 use ptero::{
@@ -32,7 +32,8 @@ const APP_NAME: &str = "Ptero CLI";
 #[clap(
 version = "0.2",
 author = "Paweł G. <dev.baymax42@gmail.com>",
-name = format ! ("{}{}", BANNER, APP_NAME)
+name = format ! ("{}{}", BANNER, APP_NAME),
+group = ArgGroup::new("output_args").required(false),
 )]
 struct Opts {
     #[clap(subcommand)]
@@ -40,7 +41,9 @@ struct Opts {
 
     /// Path to file where the result of encoding/decoding should be placed.
     /// If not used, it will print to stdout.
-    #[clap(short, long)]
+    ///
+    /// Cannot be used in conjunction with `--json` flag.
+    #[clap(short, long, group = "output_args")]
     output: Option<String>,
 
     /// Flag for controlling verbosity of the output logs.
@@ -50,7 +53,9 @@ struct Opts {
     #[clap(short, parse(from_occurrences))]
     verbose: u8,
     /// If present, will print the output of the CLI in JSON format that can be further parsed by other tooling.
-    #[clap(long)]
+    ///
+    /// Cannot be used in conjunction with `-o` flag.
+    #[clap(long, group = "output_args")]
     json: bool,
     /// Path to log file.
     ///
@@ -62,7 +67,7 @@ struct Opts {
 
 #[derive(Clap)]
 enum SubCommand {
-    #[clap(name = "encode")]
+    #[clap(name = "encode", group = ArgGroup::new("method_args").required(true))]
     Encode(EncodeSubCommand),
     #[clap(name = "decode")]
     Decode(DecodeSubCommand),

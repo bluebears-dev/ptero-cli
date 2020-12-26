@@ -1,9 +1,10 @@
+use core::panic;
 use std::{error::Error, fs};
 
 use clap::Clap;
 use log::{error, info, warn};
 
-use crate::{binary::BitIterator, encodable::Encodable};
+use crate::{binary::BitIterator, context::Context, encodable::Encodable, encoder::Encoder, method::{Method, complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod}}};
 
 /// Encode the secret into given cover text
 #[derive(Clap)]
@@ -23,6 +24,10 @@ pub struct EncodeSubCommand {
     /// If omitted, program will determine minimum pivot that can be used.
     #[clap(long)]
     pivot: Option<usize>,
+    #[clap(long, group = "method_args")]
+    eluv: bool,
+    #[clap(long = "eline", group = "method_args")]
+    extended_line: bool,
 }
 
 pub fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
@@ -31,6 +36,21 @@ pub fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
         .map(|string| string.chars().count() + 1)
         .max()
         .unwrap_or(0)
+}
+
+pub enum EncodingMethod {
+    ELUV(ELUVMethod),
+    ExtendedLine(ExtendedLineMethod)
+}
+
+fn fetch_method_arguments(args: &EncodeSubCommand) -> EncodingMethod {
+    if args.eluv {
+        EncodingMethod::ELUV(ELUVMethod::default())
+    } else if args.extended_line {
+        EncodingMethod::ExtendedLine(ExtendedLineMethod::default())
+    } else {
+        panic!("Unrecognized method!");
+    }
 }
 
 pub fn encode_command(args: EncodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
