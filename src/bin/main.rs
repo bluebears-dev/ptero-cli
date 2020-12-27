@@ -89,19 +89,18 @@ fn enable_logging(
     Ok(())
 }
 
-fn run_subcommand(subcommand: SubCommand) -> Result<String, Box<dyn Error>> {
-    let result: String = match subcommand {
+fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
+    let result = match subcommand {
         SubCommand::Encode(command) => {
-            let result = command.run()?;
-            String::from_utf8_lossy(&result).into()
+            command.run()?
         }
         SubCommand::Decode(command) => {
-            let result = decode_command(command)?;
-            String::from_utf8_lossy(&result).into()
+            decode_command(command)?
         }
         SubCommand::GetCapacity(command) => {
             let capacity: u32 = get_cover_text_capacity(command)?;
-            format!("{} b", capacity)
+            let output_str = format!("{} b", capacity);
+            output_str.as_bytes().into()
         }
     };
     Ok(result)
@@ -123,10 +122,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let cli_output = &result?;
         if let Some(path) = &opts.output {
             let mut output_file = File::create(path)?;
-            output_file.write_all(&cli_output.as_bytes())?;
-            info!("Saved to {}", &path);
+            output_file.write_all(&cli_output)?;
+            info!("Saved to '{}'", &path);
         } else {
-            writer.output(&cli_output);
+            writer.output(&String::from_utf8_lossy(&cli_output));
         }
     }
     Ok(())
