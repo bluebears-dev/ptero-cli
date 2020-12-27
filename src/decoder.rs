@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, error::Error};
 
-use log::{debug, trace};
+use log::{debug};
 
 use crate::{binary::{Bit, BitVec}, context::{Context, ContextError}};
 
@@ -25,12 +25,12 @@ pub trait Decoder<D> where D: Context {
     fn decode(&self, context: &mut D) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut secret = Vec::default();
         debug!("Decoding secret from the text");
-        while let Ok(line) = context.load_text() {
-            trace!("Line {}", line);
+        while context.load_text().is_ok() {
             let mut data = self.partial_decode(&context)?;
             secret.append(&mut data);
         }
         debug!("Padding bits to byte size boundary");
+        debug!("Unpadded secret data {:?}", &secret);
         while &secret.len() % 8 != 0 {
             secret.push(Bit(0));
         }

@@ -1,6 +1,6 @@
 use std::{error::Error, fmt};
 
-use log::debug;
+use log::{debug, trace};
 
 use crate::{binary::Bit, context::Context};
 
@@ -48,6 +48,7 @@ where
         let mut no_data_left = false;
         while !no_data_left {
             context.load_text()?;
+            trace!("Current line '{}'", context.get_current_text()?);
             if let EncoderResult::NoDataLeft = self.partial_encode(context, data)? {
                 debug!("No data left to encode, stopping");
                 no_data_left = true;

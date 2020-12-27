@@ -112,46 +112,11 @@ pub(crate) fn pick_pivot_from(
     })
 }
 
+#[allow(unused_imports)]
 mod test {
     use std::{error::Error, io::Read};
 
     use super::EncodeSubCommand;
-
-    #[test]
-    fn command_encodes_text_when_extended_line_method_is_used() -> Result<(), Box<dyn Error>> {
-        let cover_input = "a b c".repeat(5);
-        let data_input = "a";
-
-        let command = EncodeSubCommand {
-            cover: "stub".into(),
-            data: "stub".into(),
-            pivot: Some(4),
-            eluv: false,
-            extended_line: true,
-        };
-
-        let encoded_data = command.do_encode(cover_input.as_bytes(), data_input.as_bytes())?;
-        assert_eq!(String::from_utf8_lossy(&encoded_data), "a b ca \nb ca\nb ca b\nca b\nc \n");
-        Ok(())
-    }    
-    
-    #[test]
-    fn command_encodes_binary_when_extended_line_method_is_used() -> Result<(), Box<dyn Error>> {
-        let cover_input = "a b c ".repeat(5);
-        let data_input: Vec<u8> = vec!(0b11111111);
-
-        let command = EncodeSubCommand {
-            cover: "stub".into(),
-            data: "stub".into(),
-            pivot: Some(3),
-            eluv: false,
-            extended_line: true,
-        };
-
-        let encoded_data = command.do_encode(cover_input.as_bytes(), data_input.as_slice())?;
-        assert_eq!(String::from_utf8_lossy(&encoded_data), "a  b c \na  b c \na  b c\na b\nc a\nb c \n");
-        Ok(())
-    }    
 
     #[test]
     fn fails_when_there_is_not_enough_cover_text() -> Result<(), Box<dyn Error>> {

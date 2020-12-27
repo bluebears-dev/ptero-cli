@@ -38,3 +38,43 @@ impl_complex_encoder!(ExtendedLineMethod, PivotByLineContext);
 impl_complex_decoder!(ExtendedLineMethod, PivotByRawLineContext);
 
 impl Method<PivotByLineContext, PivotByRawLineContext> for ExtendedLineMethod {}
+
+#[allow(unused_imports)]
+mod test {
+    use std::error::Error;
+
+    use crate::{binary::BitIterator, context::PivotByLineContext, encoder::Encoder};
+
+    use super::ExtendedLineMethod;
+
+    #[test]
+    fn encodes_text_data() -> Result<(), Box<dyn Error>> {
+        let cover_input = "a b c".repeat(5);
+        let data_input = "a";
+        let pivot: usize = 4;
+
+        let mut data_iterator = BitIterator::new(&data_input.as_bytes());
+        let method = ExtendedLineMethod::default();
+        let mut context = PivotByLineContext::new(&cover_input, pivot);
+        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+
+        assert_eq!(&stego_text, "a b ca \nb ca\nb ca b\nca b\nc \n");
+        Ok(())
+    }    
+    
+    #[test]
+    fn encodes_binary_data() -> Result<(), Box<dyn Error>> {
+        let cover_input = "a b c ".repeat(5);
+        let data_input: Vec<u8> = vec!(0b11111111);
+        let pivot: usize = 3;
+
+
+        let mut data_iterator = BitIterator::new(&data_input);
+        let method = ExtendedLineMethod::default();
+        let mut context = PivotByLineContext::new(&cover_input, pivot);
+        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+
+        assert_eq!(&stego_text, "a  b c \na  b c \na  b c\na b\nc a\nb c \n");
+        Ok(())
+    }    
+}

@@ -14,8 +14,8 @@ use crate::{
     method::{line_extend, random_whitespace, trailing_unicode, Method},
 };
 
-/// Structure representing the ELUV algorithm. 
-/// Contains the vector of used methods. Uses macros to implement the required traits. 
+/// Structure representing the ELUV algorithm.
+/// Contains the vector of used methods. Uses macros to implement the required traits.
 pub struct ELUVMethod {
     methods: Vec<Box<dyn Method<PivotByLineContext, PivotByRawLineContext>>>,
 }
@@ -42,3 +42,51 @@ impl_complex_encoder!(ELUVMethod, PivotByLineContext);
 impl_complex_decoder!(ELUVMethod, PivotByRawLineContext);
 
 impl Method<PivotByLineContext, PivotByRawLineContext> for ELUVMethod {}
+
+#[allow(unused_imports)]
+mod test {
+    use std::error::Error;
+
+    use crate::{
+        binary::BitIterator, cli::encoder::EncodeSubCommand, context::PivotByLineContext,
+        encoder::Encoder,
+    };
+
+    use super::ELUVMethod;
+
+    #[test]
+    fn encodes_text_data() -> Result<(), Box<dyn Error>> {
+        let cover_input = "a b c ".repeat(5);
+        let data_input = "abc";
+        let pivot: usize = 3;
+
+        let mut data_iterator = BitIterator::new(&data_input.as_bytes());
+        let method = ELUVMethod::default();
+        let mut context = PivotByLineContext::new(&cover_input, pivot);
+        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+
+        assert_eq!(
+            &stego_text,
+            "a b c\u{2028}\na  b\u{2062}\nc  a\u{200b}\nb c a \nb c\na b\nc \n"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn encodes_binary_data() -> Result<(), Box<dyn Error>> {
+        let cover_input = "a b c ".repeat(6);
+        let data_input: Vec<u8> = vec![0b11101010, 0b10000011, 0b01011110];
+        let pivot: usize = 3;
+
+        let mut data_iterator = BitIterator::new(&data_input);
+        let method = ELUVMethod::default();
+        let mut context = PivotByLineContext::new(&cover_input, pivot);
+        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+
+        assert_eq!(
+            &stego_text,
+            "a  b c\u{205f}\na b c\na  b c\u{200a}\na  b c\na b\nc a\nb c \n"
+        );
+        Ok(())
+    }
+}
