@@ -18,7 +18,7 @@ use crate::{
     decoder::Decoder,
     encoder::{Encoder, EncoderResult},
 };
-use log::{trace};
+use log::trace;
 
 use crate::binary::Bit;
 
@@ -137,9 +137,9 @@ where
             context.get_current_text_mut()?.push(*character);
         }
         // Take doesn't advance the iterator so we have to do it by ourselves
-        for _ in 0..set_capacity {
-            data.next();
-        }
+        // for _ in 0..set_capacity {
+        //     data.next();
+        // }
         Ok(EncoderResult::Success)
     }
 
@@ -155,10 +155,23 @@ where
 {
     fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         if let Some(character) = context.get_current_text()?.chars().last() {
-            Ok(BitVec::from(self.unicode_set.character_to_bits(&character)).into())
-        } else {
-            Ok(BitVec::from(0 as u32).into())
+            if character.is_whitespace() {
+                trace!("Found '{:?}' at the end of the line", character);
+                let data: Vec<Bit> =
+                    BitVec::from(self.unicode_set.character_to_bits(&character)).into();
+                let data_length = data.len();
+                // Skip the unnecessary zeroes from the beginning
+                let data_iter = data.into_iter().skip(data_length - self.unicode_set.capacity());
+                let decoded_data = data_iter.collect::<Vec<Bit>>();
+                return Ok(decoded_data);
+            }
         }
+        let zero_bits = vec![0]
+            .repeat(self.unicode_set.capacity())
+            .iter()
+            .map(|v| Bit(*v))
+            .collect::<Vec<Bit>>();
+        Ok(zero_bits)
     }
 }
 
