@@ -32,8 +32,25 @@ pub struct EncodeSubCommand {
     /// If omitted, program will determine minimum pivot that can be used.
     #[clap(long)]
     pivot: Option<usize>,
+    /// Use ELUV method for encoding.
+    ///
+    /// The ELUV method is a combination of three smaller encoders. 
+    /// Random Whitespace - which puts randomly double whitepsace between words,
+    /// Line Extend - which uses pivot to determine the size of the line,
+    /// Trailing Unicode - which puts one of the predefined Unicode invisible chars
+    /// at the end of the line during encoding.
+    ///
+    /// It can encode 7 bits in one pass.
     #[clap(long, group = "method_args")]
     eluv: bool,
+    /// Use Extended Line method for encoding.
+    ///
+    /// The Extended Line method is a combination of three smaller encoders.
+    /// Random Whitespace - which puts randomly double whitepsace between words,
+    /// Line Extend - which uses pivot to determine the size of the line,
+    /// Trailing Whitespace - which puts whitespace at the end of the line during encoding.
+    ///
+    /// It can encode 3 bits in one pass. Relies purely on ASCII characters.
     #[clap(long = "eline", group = "method_args")]
     extended_line: bool,
 }

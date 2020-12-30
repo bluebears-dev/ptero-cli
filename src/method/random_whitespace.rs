@@ -1,6 +1,6 @@
 //! # Description
 //!
-//! This method puts [ASCII_WHITESPACE] between randomly selected two words.
+//! This method puts [ASCII_WHITESPACE](crate::method::random_whitespace::ASCII_WHITESPACE) between randomly selected two words.
 //! If the duplicate whitespace is present the bit 1 is encoded, otherwise 0.
 use std::error::Error;
 

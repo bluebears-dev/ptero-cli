@@ -47,10 +47,7 @@ impl Method<PivotByLineContext, PivotByRawLineContext> for ELUVMethod {}
 mod test {
     use std::error::Error;
 
-    use crate::{
-        binary::BitIterator, cli::encoder::EncodeSubCommand, context::PivotByLineContext,
-        encoder::Encoder,
-    };
+    use crate::{binary::BitIterator, cli::encoder::EncodeSubCommand, context::{PivotByLineContext, PivotByRawLineContext}, decoder::Decoder, encoder::Encoder};
 
     use super::ELUVMethod;
 
@@ -87,6 +84,32 @@ mod test {
             &stego_text,
             "a  b c\u{205f}\na b c\na  b c\u{200a}\na  b c\na b\nc a\nb c \n"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn decodes_binary_data() ->  Result<(), Box<dyn Error>> {
+        let stego_text = "a  bc\na bcd \na  b d\u{205f}\n";
+        let pivot: usize = 4;
+
+        let method = ELUVMethod::default();
+        let mut context = PivotByRawLineContext::new(&stego_text, pivot);
+        let secret_data = method.decode(&mut context)?;
+
+        assert_eq!(&secret_data, &[0b10_00000_0, 0b1_00001_11, 0b10101_000]);
+        Ok(())
+    }
+
+    #[test]
+    fn decodes_zeroes_if_no_data_encoded() ->  Result<(), Box<dyn Error>> {
+        let stego_text = "a\n".repeat(5);
+        let pivot: usize = 4;
+
+        let method = ELUVMethod::default();
+        let mut context = PivotByRawLineContext::new(&stego_text, pivot);
+        let secret_data = method.decode(&mut context)?;
+
+        assert_eq!(&secret_data, &[0, 0, 0, 0, 0]);
         Ok(())
     }
 }

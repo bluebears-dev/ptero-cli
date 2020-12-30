@@ -18,7 +18,9 @@ pub struct DecodeSubCommand {
     #[clap(short, long)]
     pivot: usize,
     #[clap(long, group = "method_args")]
+    /// Use ELUV method for encoding.
     eluv: bool,
+    /// Use Extended Line method for encoding.
     #[clap(long = "eline", group = "method_args")]
     extended_line: bool,
 }

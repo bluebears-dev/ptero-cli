@@ -19,7 +19,7 @@ pub trait Decoder<D> where D: Context {
     /// It returns `Result`, either decoded data as as vector of [Bits] or error.
     ///
     /// [Context]: crate::context::Context
-    /// [Bit]: crate::binary::Bit
+    /// [Bits]: crate::binary::Bit
     fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError>;
 
     fn decode(&self, context: &mut D) -> Result<Vec<u8>, Box<dyn Error>> {

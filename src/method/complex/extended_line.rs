@@ -8,10 +8,14 @@
 //!
 //! For more info read docs on each one of the above encoders.
 
-use crate::{context::{PivotByRawLineContext, PivotByLineContext}, impl_complex_decoder, impl_complex_encoder, method::{line_extend, random_whitespace, trailing_whitespace, Method}};
+use crate::{
+    context::{PivotByLineContext, PivotByRawLineContext},
+    impl_complex_decoder, impl_complex_encoder,
+    method::{line_extend, random_whitespace, trailing_whitespace, Method},
+};
 
-/// Structure representing the Extended Line algorithm. 
-/// Contains the vector of used methods. Uses macros to implement the required traits. 
+/// Structure representing the Extended Line algorithm.
+/// Contains the vector of used methods. Uses macros to implement the required traits.
 pub struct ExtendedLineMethod {
     methods: Vec<Box<dyn Method<PivotByLineContext, PivotByRawLineContext>>>,
 }
@@ -43,7 +47,12 @@ impl Method<PivotByLineContext, PivotByRawLineContext> for ExtendedLineMethod {}
 mod test {
     use std::error::Error;
 
-    use crate::{binary::BitIterator, context::PivotByLineContext, encoder::Encoder};
+    use crate::{
+        binary::BitIterator,
+        context::{PivotByLineContext, PivotByRawLineContext},
+        decoder::Decoder,
+        encoder::Encoder,
+    };
 
     use super::ExtendedLineMethod;
 
@@ -60,14 +69,13 @@ mod test {
 
         assert_eq!(&stego_text, "a b ca \nb ca\nb ca b\nca b\nc \n");
         Ok(())
-    }    
-    
+    }
+
     #[test]
     fn encodes_binary_data() -> Result<(), Box<dyn Error>> {
         let cover_input = "a b c ".repeat(5);
-        let data_input: Vec<u8> = vec!(0b11111111);
+        let data_input: Vec<u8> = vec![0b11111111];
         let pivot: usize = 3;
-
 
         let mut data_iterator = BitIterator::new(&data_input);
         let method = ExtendedLineMethod::default();
@@ -76,5 +84,31 @@ mod test {
 
         assert_eq!(&stego_text, "a  b c \na  b c \na  b c\na b\nc a\nb c \n");
         Ok(())
-    }    
+    }
+
+    #[test]
+    fn decodes_binary_data() -> Result<(), Box<dyn Error>> {
+        let stego_text = "a  bc\na bcd\na  b d \n";
+        let pivot: usize = 4;
+
+        let method = ExtendedLineMethod::default();
+        let mut context = PivotByRawLineContext::new(&stego_text, pivot);
+        let secret_data = method.decode(&mut context)?;
+
+        assert_eq!(&secret_data, &[0b100_010_11, 0b100_000_00]);
+        Ok(())
+    }
+
+    #[test]
+    fn decodes_zeroes_if_no_data_encoded() -> Result<(), Box<dyn Error>> {
+        let stego_text = "a\n".repeat(5);
+        let pivot: usize = 4;
+
+        let method = ExtendedLineMethod::default();
+        let mut context = PivotByRawLineContext::new(&stego_text, pivot);
+        let secret_data = method.decode(&mut context)?;
+
+        assert_eq!(&secret_data, &[0, 0]);
+        Ok(())
+    }
 }
