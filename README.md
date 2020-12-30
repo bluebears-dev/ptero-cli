@@ -13,7 +13,7 @@ However, it also includes an implementation of specified algorithm.
   - [Installation](#installation)
     - [Editor](#editor)
     - [Build](#build)
-    - [Tests](#tests)
+    - [Tests and coverage](#tests-and-coverage)
     - [Lint](#lint)
   - [Project structure](#project-structure)
   - [Scripts](#scripts)
@@ -35,19 +35,39 @@ I use the [VS Code](https://code.visualstudio.com/download) as the main editor i
 
 ### Build
 
-Just `cargo build` or `cargo run` to build and run the project.
+If you want to just build the artifact run:
+```shell
+cargo build
+```
 
-### Tests
+To run the binary through the `cargo` you can issue:
+```shell
+# Example with argument
+cargo run -- -vv encode -c some_cover_text -d secret
+```
+### Tests and coverage
 
-Just `cargo t`. **Coverage is not yet set up.**
+To run all the tests:
+```shell
+cargo test
+```
+
+Coverage checking is done through separate package `cargo-tarpaulin` - make sure to install it if you want to. To run it locally just:
+```shell
+cargo tarpaulin -v
+```
 
 ### Lint
 
-This project ensures it is compliant with `clippy` rules. To make sure you're fine, run `cargo clippy`.
+This project ensures it is compliant with `clippy` rules. To make sure you're fine, run:
+```shell
+cargo clippy
+```
 
 ## Project structure
 
 This project contains both binary package nad library. See [lib.rs](./src/lib.rs) to see module overview and [main.rs](./src/main.rs) the entry point for CLI binary package.
+
 
 ## Scripts
 
