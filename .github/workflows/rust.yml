@@ -18,7 +18,7 @@ jobs:
       # Prepare environment
       - uses: actions/checkout@v2
 
-      - name: Install latest stable
+      - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
             toolchain: nightly
@@ -36,27 +36,18 @@ jobs:
         with:
           command: clean
 
-      - name: Run tests
-        uses: actions-rs/cargo@v1
+      - name: Run tests and coverage
+        uses: actions-rs/tarpaulin@v0.1
         with:
-          command: test
-          args: --all-features --no-fail-fast
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-
-      # Collect coverage and upload to Coveralls
-      - id: coverage
-        uses: actions-rs/grcov@v0.1
-        with:
-          config: config/grcov.yml
+          version: '0.16.0'
+          args: '-- --test-threads 1'
+          out-type: 'Lcov'
 
       - name: Coveralls upload
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
+          path-to-lcov: "lcov.info"
   
       # Build the binary
       - name: Build
