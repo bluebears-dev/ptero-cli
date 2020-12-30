@@ -1,4 +1,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/baymax42/ptero-cli/badge.svg?branch=main)](https://coveralls.io/github/baymax42/ptero-cli?branch=main)
+![GitHub branch checks state](https://img.shields.io/github/checks-status/baymax42/ptero-cli/main?label=status)
+![GitHub](https://img.shields.io/github/license/baymax42/ptero-cli)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/baymax42/ptero-cli)
 # Ptero CLI
 
 This is a repository for the steganography project for *Individual Project* course on university.
