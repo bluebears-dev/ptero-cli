@@ -52,6 +52,7 @@ pub struct EncodeSubCommand {
     ///
     /// It can encode 3 bits in one pass. Relies purely on ASCII characters.
     #[clap(long = "eline", group = "method_args")]
+    #[allow(dead_code)]
     extended_line: bool,
 }
 

@@ -22,6 +22,7 @@ pub struct DecodeSubCommand {
     eluv: bool,
     /// Use Extended Line method for encoding.
     #[clap(long = "eline", group = "method_args")]
+    #[allow(dead_code)]
     extended_line: bool,
 }
 
