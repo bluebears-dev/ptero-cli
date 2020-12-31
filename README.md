@@ -1,16 +1,19 @@
-[![Coverage Status](https://coveralls.io/repos/github/baymax42/ptero-cli/badge.svg?branch=main)](https://coveralls.io/github/baymax42/ptero-cli?branch=main)
-![GitHub branch checks state](https://img.shields.io/github/checks-status/baymax42/ptero-cli/main?label=status)
-![GitHub](https://img.shields.io/github/license/baymax42/ptero-cli)
-![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/baymax42/ptero-cli)
-# Ptero CLI
 
-This is a repository for the steganography project for *Individual Project* course on university.
 
-It is a extended version of the alogorithm presented [here](https://link.springer.com/chapter/10.1007/978-3-319-76687-4_15). 
-However, it also includes an implementation of specified algorithm. 
+# Ptero CLI ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/baymax42/ptero-cli)
+
+---
+
+**Ptero** is a CLI text steganography tool, meant to be used in the social media like *Facebook*. It offers a way to encode and decode data.
+
+It implements the algorithm presented [here](https://link.springer.com/chapter/10.1007/978-3-319-76687-4_15). 
+However, it also includes an extended implementation of specified algorithm, called __ELUV__. See `help` of the tool for more info on the usage.
+
+---
+
 <!-- TOC -->
 - [Ptero CLI](#ptero-cli)
-  - [Installation](#installation)
+  - [Development](#development)
     - [Editor](#editor)
     - [Build](#build)
     - [Tests and coverage](#tests-and-coverage)
@@ -20,7 +23,7 @@ However, it also includes an implementation of specified algorithm.
     - [Bitrate measurement](#bitrate-measurement)
 <!-- TOC -->
 
-## Installation
+## Development   [![Coverage Status](https://coveralls.io/repos/github/baymax42/ptero-cli/badge.svg?branch=main)](https://coveralls.io/github/baymax42/ptero-cli?branch=main) ![GitHub branch checks state](https://img.shields.io/github/checks-status/baymax42/ptero-cli/main?label=status) ![GitHub](https://img.shields.io/github/license/baymax42/ptero-cli)
 
 Rust is the main language used in this repository. By default, you have to install standard Rust toolchain to start working.
 See [official installation page](https://www.rust-lang.org/tools/install) for more info.
@@ -66,7 +69,7 @@ cargo clippy
 
 ## Project structure
 
-This project contains both binary package nad library. See [lib.rs](./src/lib.rs) to see module overview and [main.rs](./src/main.rs) the entry point for CLI binary package.
+This project contains both binary package nad library. See [lib.rs](./src/lib.rs) to see module overview and [main.rs](./src/bin/main.rs) the entry point for CLI binary package.
 
 
 ## Scripts
