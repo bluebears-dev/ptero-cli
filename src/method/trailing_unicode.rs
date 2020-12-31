@@ -16,7 +16,7 @@ use crate::{
     binary::BitVec,
     context::{Context, ContextError},
     decoder::Decoder,
-    encoder::{Encoder, EncoderResult},
+    encoder::{Capacity, Encoder, EncoderResult},
 };
 use log::trace;
 
@@ -36,14 +36,6 @@ pub trait UnicodeSet {
 
     fn size(&self) -> usize {
         self.get_set().len()
-    }
-
-    /// # Returns
-    /// Returns the capacity of the set.
-    /// By capacity it means the amount of bits that can possibly be encoded using this set.
-    fn capacity(&self) -> usize {
-        let amount_of_bits = std::mem::size_of::<usize>() * 8;
-        amount_of_bits - self.size().leading_zeros() as usize
     }
 
     fn get_character(&self, index: u32) -> Option<&char> {
@@ -111,6 +103,16 @@ where
     }
 }
 
+impl<T> Capacity for TrailingUnicodeMethod<T>
+where
+    T: UnicodeSet,
+{
+    fn bitrate(&self) -> usize {
+        let amount_of_bits = std::mem::size_of::<usize>() * 8;
+        amount_of_bits - self.unicode_set.size().leading_zeros() as usize
+    }
+}
+
 impl<T, E> Encoder<E> for TrailingUnicodeMethod<T>
 where
     T: UnicodeSet,
@@ -121,7 +123,7 @@ where
         context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>> {
-        let set_capacity = self.unicode_set.capacity();
+        let set_capacity = self.bitrate();
         let next_n_bits: BitVec = data.take(set_capacity).collect::<Vec<Bit>>().into();
         let number: u32 = next_n_bits.into();
         trace!(
@@ -136,15 +138,8 @@ where
             );
             context.get_current_text_mut()?.push(*character);
         }
-        // Take doesn't advance the iterator so we have to do it by ourselves
-        // for _ in 0..set_capacity {
-        //     data.next();
-        // }
-        Ok(EncoderResult::Success)
-    }
 
-    fn rate(&self) -> u32 {
-        self.unicode_set.capacity() as u32
+        Ok(EncoderResult::Success)
     }
 }
 
@@ -161,13 +156,15 @@ where
                     BitVec::from(self.unicode_set.character_to_bits(&character)).into();
                 let data_length = data.len();
                 // Skip the unnecessary zeroes from the beginning
-                let data_iter = data.into_iter().skip(data_length - self.unicode_set.capacity());
+                let data_iter = data
+                    .into_iter()
+                    .skip(data_length - self.bitrate());
                 let decoded_data = data_iter.collect::<Vec<Bit>>();
                 return Ok(decoded_data);
             }
         }
         let zero_bits = vec![0]
-            .repeat(self.unicode_set.capacity())
+            .repeat(self.bitrate())
             .iter()
             .map(|v| Bit(*v))
             .collect::<Vec<Bit>>();

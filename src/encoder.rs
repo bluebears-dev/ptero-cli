@@ -11,9 +11,17 @@ pub enum EncoderResult {
     NoDataLeft,
 }
 
+/// Trait that should be implemented by the [Encoders](crate::econder::Encoder).
+/// Gives amount of bits that are encoded per text fragment. 
+/// Concrete text fragment (e.g. line) is determined by the [Context](crate::context::Context).
+pub trait Capacity {
+    /// Returns how many bits are encoded per text fragment.
+    fn bitrate(&self) -> usize;
+}
+
 /// Base trait for all data encoders.
 /// The generic type should contain data need by the encoder implementation.
-pub trait Encoder<E>
+pub trait Encoder<E> : Capacity
 where
     E: Context,
 {
@@ -71,9 +79,6 @@ where
             Ok(stego_text)
         }
     }
-
-    /// This method provides the amount of bits encoded per line by the encoder.
-    fn rate(&self) -> u32;
 }
 
 /// Enum for data encoding errors types

@@ -32,6 +32,7 @@ pub struct EncodeSubCommand {
     /// If omitted, program will determine minimum pivot that can be used.
     #[clap(long)]
     pivot: Option<usize>,
+    
     /// Use ELUV method for encoding.
     ///
     /// The ELUV method is a combination of three smaller encoders. 
@@ -43,6 +44,7 @@ pub struct EncodeSubCommand {
     /// It can encode 7 bits in one pass.
     #[clap(long, group = "method_args")]
     eluv: bool,
+
     /// Use Extended Line method for encoding.
     ///
     /// The Extended Line method is a combination of three smaller encoders.

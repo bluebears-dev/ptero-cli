@@ -4,12 +4,7 @@
 //! If the duplicate whitespace is present the bit 1 is encoded, otherwise 0.
 use std::error::Error;
 
-use crate::{
-    binary::Bit,
-    context::{Context, ContextError},
-    decoder::Decoder,
-    encoder::{Encoder, EncoderResult},
-};
+use crate::{binary::Bit, context::{Context, ContextError}, decoder::Decoder, encoder::{Capacity, Encoder, EncoderResult}};
 
 use log::{trace};
 use rand::{thread_rng, Rng};
@@ -34,6 +29,12 @@ impl Default for RandomWhitespaceMethod {
 impl RandomWhitespaceMethod {
     pub fn new() -> Self {
         RandomWhitespaceMethod {}
+    }
+}
+
+impl Capacity for RandomWhitespaceMethod {
+    fn bitrate(&self) -> usize {
+        1
     }
 }
 
@@ -67,9 +68,6 @@ where
             None => EncoderResult::NoDataLeft,
             _ => EncoderResult::Success,
         })
-    }
-    fn rate(&self) -> u32 {
-        1
     }
 }
 

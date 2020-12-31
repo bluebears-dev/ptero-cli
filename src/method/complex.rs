@@ -25,11 +25,13 @@ macro_rules! impl_complex_encoder {
                 }
                 Ok(is_data_still_available)
             }
+        }
 
-            fn rate(&self) -> u32 {
+        impl crate::encoder::Capacity for $t {
+            fn bitrate(&self) -> usize {
                 self.methods
                     .iter()
-                    .fold(0, |acc, encoder| acc + encoder.rate())
+                    .fold(0, |acc, encoder| acc + encoder.bitrate())
             }
         }
     };

@@ -2,11 +2,7 @@ use clap::Clap;
 use log::{error, info, warn};
 use std::{error::Error, fs};
 
-use crate::{
-    context::{Context, PivotByLineContext},
-    encoder::Encoder,
-    method::complex::extended_line::ExtendedLineMethod,
-};
+use crate::{context::{Context, PivotByLineContext}, encoder::{Capacity}, method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod}};
 
 use super::encoder::determine_pivot_size;
 
@@ -20,12 +16,30 @@ pub struct GetCapacityCommand {
     /// Pivot i.e. line length.
     #[clap(short, long)]
     pivot: usize,
+
+    /// Use ELUV method for encoding.
+    #[clap(long, group = "method_args")]
+    eluv: bool,
+
+    /// Use Extended Line method for encoding.
+    #[clap(long = "eline", group = "method_args")]
+    #[allow(dead_code)]
+    extended_line: bool,
 }
+
+pub fn get_method(eluv: bool) -> Box<dyn Capacity> {
+    if eluv {
+        Box::new(ELUVMethod::default())
+    } else {
+        Box::new(ExtendedLineMethod::default())
+    }
+}
+
 
 pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn Error>> {
     let cover_text = fs::read_to_string(args.cover)?;
     let mut pivot_word_context = PivotByLineContext::new(&cover_text, args.pivot);
-    let mut lines_count = 0;
+    let mut text_fragment_count = 0;
 
     let max_word_length = determine_pivot_size(cover_text.split_whitespace());
     let text_length = cover_text
@@ -43,13 +57,13 @@ pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn 
     }
 
     info!("Calculating the capacity");
-    while let Ok(line) = pivot_word_context.load_text() {
-        if line.is_empty() {
+    while let Ok(fragment) = pivot_word_context.load_text() {
+        if fragment.is_empty() {
             error!("Pivot is too small, stopping");
             return Err("Could not determine the capacity for the given cover text".into());
         }
-        lines_count += 1;
+        text_fragment_count += 1;
     }
-    let encoder = ExtendedLineMethod::default();
-    Ok(lines_count * encoder.rate())
+    let method = get_method(args.eluv);
+    Ok(text_fragment_count * method.bitrate() as u32)
 }

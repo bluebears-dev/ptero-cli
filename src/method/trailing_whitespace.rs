@@ -9,7 +9,7 @@ use std::error::Error;
 
 use log::{trace};
 
-use crate::{binary::{Bit}, context::{Context, ContextError}, decoder::Decoder, encoder::{Encoder, EncoderResult}};
+use crate::{binary::{Bit}, context::{Context, ContextError}, decoder::Decoder, encoder::{Capacity, Encoder, EncoderResult}};
 
 /// Character used as the trailing whitespace in the method.
 pub const ASCII_WHITESPACE: char = ' ';
@@ -32,6 +32,12 @@ impl TrailingWhitespaceMethod {
     }
 }
 
+impl Capacity for TrailingWhitespaceMethod {
+    fn bitrate(&self) -> usize {
+        1
+    }
+}
+
 impl<E> Encoder<E> for TrailingWhitespaceMethod
 where
     E: Context,
@@ -50,11 +56,6 @@ where
             None => EncoderResult::NoDataLeft,
             _ => EncoderResult::Success,
         })
-    }
-    
-
-    fn rate(&self) -> u32 {
-        1
     }
 }
 

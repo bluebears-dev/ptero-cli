@@ -49,11 +49,13 @@ struct Opts {
     /// By default only error logs are printed.
     #[clap(short, parse(from_occurrences))]
     verbose: u8,
+
     /// If present, will print the output of the CLI in JSON format that can be further parsed by other tooling.
     ///
     /// Cannot be used in conjunction with `-o` flag.
     #[clap(long, group = "output_args")]
     json: bool,
+
     /// Path to log file.
     ///
     /// By default CLI won't save any logs. If this param is used, CLI will append new logs at the end of the file
@@ -68,7 +70,7 @@ enum SubCommand {
     Encode(EncodeSubCommand),
     #[clap(name = "decode", group = ArgGroup::new("method_args").required(true))]
     Decode(DecodeSubCommand),
-    #[clap(name = "capacity")]
+    #[clap(name = "capacity", group = ArgGroup::new("method_args").required(true))]
     GetCapacity(GetCapacityCommand),
 }
 

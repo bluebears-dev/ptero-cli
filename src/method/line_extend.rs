@@ -14,7 +14,7 @@ use std::error::Error;
 use log::{trace};
 use regex::Regex;
 
-use crate::{binary::Bit, context::{Context, ContextError, PivotByLineContext, PivotByRawLineContext}, decoder::Decoder, encoder::{Encoder, EncoderResult, EncodingError}};
+use crate::{binary::Bit, context::{Context, ContextError, PivotByLineContext, PivotByRawLineContext}, decoder::Decoder, encoder::{Capacity, Encoder, EncoderResult, EncodingError}};
 
 use super::Method;
 
@@ -40,6 +40,12 @@ impl Default for LineExtendMethod {
     }
 }
 
+impl Capacity for LineExtendMethod {
+    fn bitrate(&self) -> usize {
+        1
+    }
+}
+
 impl Encoder<PivotByLineContext> for LineExtendMethod {
     fn partial_encode(
         &self,
@@ -61,9 +67,6 @@ impl Encoder<PivotByLineContext> for LineExtendMethod {
             None => EncoderResult::NoDataLeft,
             _ => EncoderResult::Success,
         })
-    }
-    fn rate(&self) -> u32 {
-        1
     }
 }
 

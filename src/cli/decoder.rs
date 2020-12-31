@@ -14,12 +14,15 @@ pub struct DecodeSubCommand {
     /// Path to stegotext from which data will be decoded
     #[clap(short, long)]
     text: String,
+
     /// Pivot i.e. line length used to encode with extended line algorithm
     #[clap(short, long)]
     pivot: usize,
-    #[clap(long, group = "method_args")]
+
     /// Use ELUV method for encoding.
+    #[clap(long, group = "method_args")]
     eluv: bool,
+    
     /// Use Extended Line method for encoding.
     #[clap(long = "eline", group = "method_args")]
     #[allow(dead_code)]
