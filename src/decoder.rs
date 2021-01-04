@@ -1,8 +1,8 @@
-use std::{convert::TryFrom, error::Error};
+use std::{convert::TryFrom, error::Error, sync::mpsc::Sender};
 
 use log::{debug};
 
-use crate::{binary::{Bit, BitVec}, context::{Context, ContextError}};
+use crate::{binary::{Bit, BitVec}, cli::progress::ProgressStatus, context::{Context, ContextError}};
 
 // TODO: Provide DecoderError and mapping from ContextError
 /// Base trait for all data decoders.
@@ -22,11 +22,14 @@ pub trait Decoder<D> where D: Context {
     /// [Bits]: crate::binary::Bit
     fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError>;
 
-    fn decode(&self, context: &mut D) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn decode(&self, context: &mut D, progress_channel: Option<&Sender<ProgressStatus>>) -> Result<Vec<u8>, Box<dyn Error>> {
         let mut secret = Vec::default();
         debug!("Decoding secret from the text");
         while context.load_text().is_ok() {
             let mut data = self.partial_decode(&context)?;
+            if let Some(tx) = progress_channel {
+                tx.send(ProgressStatus::Step(context.get_current_text()?.len() as u64)).ok();
+            }
             secret.append(&mut data);
         }
         debug!("Padding bits to byte size boundary");

@@ -28,4 +28,5 @@ pub mod cli {
     pub mod decoder;
     pub mod encoder;
     pub mod writer;
+    pub mod progress;
 }

@@ -1,8 +1,4 @@
-use std::{
-    error::Error,
-    fs::{File},
-    io::Read,
-};
+use std::{error::Error, fs::File, io::Read, sync::mpsc::channel, thread::{self, sleep}, time::Duration};
 
 use clap::Clap;
 use log::{error, info, trace, warn};
@@ -13,6 +9,8 @@ use crate::{
     encoder::Encoder,
     method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
 };
+
+use super::progress::{ProgressStatus, new_progress_bar, spawn_progress_thread};
 
 /// Encode the secret into given cover text
 #[derive(Clap)]
@@ -32,10 +30,10 @@ pub struct EncodeSubCommand {
     /// If omitted, program will determine minimum pivot that can be used.
     #[clap(long)]
     pivot: Option<usize>,
-    
+
     /// Use ELUV method for encoding.
     ///
-    /// The ELUV method is a combination of three smaller encoders. 
+    /// The ELUV method is a combination of three smaller encoders.
     /// Random Whitespace - which puts randomly double whitepsace between words,
     /// Line Extend - which uses pivot to determine the size of the line,
     /// Trailing Unicode - which puts one of the predefined Unicode invisible chars
@@ -76,7 +74,7 @@ impl EncodeSubCommand {
 
         cover_input.read_to_string(&mut cover_text)?;
         data_input.read_to_end(&mut data)?;
-        
+
         trace!("text: {:?}", data);
 
         let pivot = pick_pivot_from(
@@ -91,9 +89,18 @@ impl EncodeSubCommand {
         info!("Encoding secret data");
 
         let mut data_iterator = BitIterator::new(&data);
+        
+        let progress_bar = new_progress_bar(data_iterator.count() as u64);
+        let (tx, rx) = channel::<ProgressStatus>();
+        progress_bar.set_message("Encoding..");
+        spawn_progress_thread(progress_bar.clone(), rx);
+
         let method = self.get_method();
         let mut context = PivotByLineContext::new(&cover_text, pivot);
-        let stego_result = method.encode(&mut context, &mut data_iterator);
+        let stego_result = method.encode(&mut context, &mut data_iterator, Some(&tx));
+        
+        tx.send(ProgressStatus::Finished).ok();
+        progress_bar.finish_with_message("Finished encoding");
 
         Ok(stego_result?.as_bytes().into())
     }
@@ -141,7 +148,7 @@ mod test {
     #[test]
     fn fails_when_there_is_not_enough_cover_text() -> Result<(), Box<dyn Error>> {
         let cover_input = "a b c ".repeat(2);
-        let data_input: Vec<u8> = vec!(0b11111111);
+        let data_input: Vec<u8> = vec![0b11111111];
 
         let command = EncodeSubCommand {
             cover: "stub".into(),
@@ -159,7 +166,7 @@ mod test {
     #[test]
     fn fails_when_pivot_is_too_small() -> Result<(), Box<dyn Error>> {
         let cover_input = "aaaaa ".repeat(2);
-        let data_input: Vec<u8> = vec!(0b11111111);
+        let data_input: Vec<u8> = vec![0b11111111];
 
         let command = EncodeSubCommand {
             cover: "stub".into(),

@@ -1,8 +1,8 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, sync::mpsc::Sender};
 
 use log::{debug, trace};
 
-use crate::{binary::Bit, context::Context};
+use crate::{binary::Bit, cli::progress::ProgressStatus, context::Context};
 
 /// Possible results of data encoding
 #[derive(Debug, Clone)]
@@ -12,7 +12,7 @@ pub enum EncoderResult {
 }
 
 /// Trait that should be implemented by the [Encoders](crate::econder::Encoder).
-/// Gives amount of bits that are encoded per text fragment. 
+/// Gives amount of bits that are encoded per text fragment.
 /// Concrete text fragment (e.g. line) is determined by the [Context](crate::context::Context).
 pub trait Capacity {
     /// Returns how many bits are encoded per text fragment.
@@ -21,7 +21,7 @@ pub trait Capacity {
 
 /// Base trait for all data encoders.
 /// The generic type should contain data need by the encoder implementation.
-pub trait Encoder<E> : Capacity
+pub trait Encoder<E>: Capacity
 where
     E: Context,
 {
@@ -50,6 +50,7 @@ where
         &self,
         context: &mut E,
         data: &mut dyn Iterator<Item = Bit>,
+        progress_channel: Option<&Sender<ProgressStatus>>,
     ) -> Result<String, Box<dyn Error>> {
         let mut stego_text = String::new();
 
@@ -57,9 +58,16 @@ where
         while !no_data_left {
             context.load_text()?;
             trace!("Current line '{}'", context.get_current_text()?);
-            if let EncoderResult::NoDataLeft = self.partial_encode(context, data)? {
-                debug!("No data left to encode, stopping");
-                no_data_left = true;
+            match self.partial_encode(context, data)? {
+                EncoderResult::Success => {
+                    if let Some(tx) = progress_channel {
+                        tx.send(ProgressStatus::Step(self.bitrate() as u64)).ok();
+                    }
+                }
+                EncoderResult::NoDataLeft => {
+                    debug!("No data left to encode, stopping");
+                    no_data_left = true;
+                }
             }
             let line = context.get_current_text()?;
             stego_text.push_str(&format!("{}\n", &line));

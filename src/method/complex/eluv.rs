@@ -60,7 +60,7 @@ mod test {
         let mut data_iterator = BitIterator::new(&data_input.as_bytes());
         let method = ELUVMethod::default();
         let mut context = PivotByLineContext::new(&cover_input, pivot);
-        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+        let stego_text = method.encode(&mut context, &mut data_iterator, None)?;
 
         assert_eq!(
             &stego_text,
@@ -78,7 +78,7 @@ mod test {
         let mut data_iterator = BitIterator::new(&data_input);
         let method = ELUVMethod::default();
         let mut context = PivotByLineContext::new(&cover_input, pivot);
-        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+        let stego_text = method.encode(&mut context, &mut data_iterator, None)?;
 
         assert_eq!(
             &stego_text,
@@ -94,7 +94,7 @@ mod test {
 
         let method = ELUVMethod::default();
         let mut context = PivotByRawLineContext::new(&stego_text, pivot);
-        let secret_data = method.decode(&mut context)?;
+        let secret_data = method.decode(&mut context, None)?;
 
         assert_eq!(&secret_data, &[0b10_00000_0, 0b1_00001_11, 0b10101_000]);
         Ok(())
@@ -107,7 +107,7 @@ mod test {
 
         let method = ELUVMethod::default();
         let mut context = PivotByRawLineContext::new(&stego_text, pivot);
-        let secret_data = method.decode(&mut context)?;
+        let secret_data = method.decode(&mut context, None)?;
 
         assert_eq!(&secret_data, &[0, 0, 0, 0, 0]);
         Ok(())

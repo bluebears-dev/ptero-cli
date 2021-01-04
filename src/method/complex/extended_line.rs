@@ -65,7 +65,7 @@ mod test {
         let mut data_iterator = BitIterator::new(&data_input.as_bytes());
         let method = ExtendedLineMethod::default();
         let mut context = PivotByLineContext::new(&cover_input, pivot);
-        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+        let stego_text = method.encode(&mut context, &mut data_iterator, None)?;
 
         assert_eq!(&stego_text, "a b ca \nb ca\nb ca b\nca b\nc \n");
         Ok(())
@@ -80,7 +80,7 @@ mod test {
         let mut data_iterator = BitIterator::new(&data_input);
         let method = ExtendedLineMethod::default();
         let mut context = PivotByLineContext::new(&cover_input, pivot);
-        let stego_text = method.encode(&mut context, &mut data_iterator)?;
+        let stego_text = method.encode(&mut context, &mut data_iterator, None)?;
 
         assert_eq!(&stego_text, "a  b c \na  b c \na  b c\na b\nc a\nb c \n");
         Ok(())
@@ -93,7 +93,7 @@ mod test {
 
         let method = ExtendedLineMethod::default();
         let mut context = PivotByRawLineContext::new(&stego_text, pivot);
-        let secret_data = method.decode(&mut context)?;
+        let secret_data = method.decode(&mut context, None)?;
 
         assert_eq!(&secret_data, &[0b100_010_11, 0b100_000_00]);
         Ok(())
@@ -106,7 +106,7 @@ mod test {
 
         let method = ExtendedLineMethod::default();
         let mut context = PivotByRawLineContext::new(&stego_text, pivot);
-        let secret_data = method.decode(&mut context)?;
+        let secret_data = method.decode(&mut context, None)?;
 
         assert_eq!(&secret_data, &[0, 0]);
         Ok(())

@@ -1,4 +1,4 @@
-use std::{error::Error, fs};
+use std::{error::Error, fs, sync::mpsc::channel};
 
 use clap::Clap;
 
@@ -7,6 +7,8 @@ use crate::{
     decoder::Decoder,
     method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
 };
+
+use super::progress::{ProgressStatus, new_progress_bar, spawn_progress_thread};
 
 /// Decode secret from the stegotext
 #[derive(Clap)]
@@ -42,5 +44,15 @@ pub fn decode_command(args: DecodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>>
     let decoder = get_method(args.eluv);
     let mut context = PivotByRawLineContext::new(cover_text.as_str(), args.pivot);
 
-    Ok(decoder.decode(&mut context)?)
+    let progress_bar = new_progress_bar(cover_text.len() as u64);
+    let (tx, rx) = channel::<ProgressStatus>();
+    progress_bar.set_message("Decoding cover text...");
+    spawn_progress_thread(progress_bar.clone(), rx);
+
+    let result =  decoder.decode(&mut context, Some(&tx));
+    
+    tx.send(ProgressStatus::Finished).ok();
+    progress_bar.finish_with_message("Finished decoding");
+
+    result
 }
