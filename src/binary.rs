@@ -1,4 +1,4 @@
-use std::{error::Error, convert::TryFrom};
+use std::{convert::TryFrom, error::Error};
 use std::{fmt, vec::Vec};
 
 const MOST_SIGNIFICANT_BIT_PATTERN: u8 = 0b10000000;
@@ -47,13 +47,13 @@ impl From<BitVec> for u32 {
             number <<= 1;
             number += u32::from(bit.0);
         }
-        number 
+        number
     }
 }
 
 impl From<u32> for BitVec {
     /// Conversion implementation for `u32`.
-    /// Converts `u32` number to the vector of [Bits](Bit). 
+    /// Converts `u32` number to the vector of [Bits](Bit).
     /// The result vector has the most significant bit at the beginning.
     ///
     /// # Examples
@@ -75,7 +75,7 @@ impl From<u32> for BitVec {
             ((number >> 24) & 0xff) as u8,
             ((number >> 16) & 0xff) as u8,
             ((number >> 8) & 0xff) as u8,
-            (number & 0xff) as u8
+            (number & 0xff) as u8,
         ];
         BitIterator::new(&byte_array).collect::<Vec<Bit>>().into()
     }
@@ -85,17 +85,17 @@ impl TryFrom<BitVec> for Vec<u8> {
     type Error = BinaryConversionError;
 
     /// Tries to convert array of [Bits](Bit) to the array of bytes. The function
-    /// expects that each left most bit in byte-size boundary is the 
+    /// expects that each left most bit in byte-size boundary is the
     /// most significant bit.
     ///
     /// # Arguments
     ///
     /// * `bits` - reference to array of bits `&[Bit]`
-    /// 
+    ///
     /// # Behavior
-    /// 
+    ///
     /// Function return [BinaryConversionError] when
-    /// array is not padded to byte-size boundary i.e. length to divisible by 8. 
+    /// array is not padded to byte-size boundary i.e. length to divisible by 8.
     ///
     /// # Examples
     ///
@@ -103,7 +103,7 @@ impl TryFrom<BitVec> for Vec<u8> {
     /// ```
     /// use ptero::binary::{Bit, BitVec, BinaryConversionError};
     /// use std::convert::TryFrom;
-    /// 
+    ///
     /// let array: BitVec = vec![0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1]
     ///                             .iter()
     ///                             .map(|v| Bit(*v))
@@ -113,7 +113,7 @@ impl TryFrom<BitVec> for Vec<u8> {
     /// assert!(result.is_ok());
     /// assert_eq!(result.unwrap(), vec![42, 129]);
     /// ```      
-    /// 
+    ///
     /// ## Return error if array is not in byte-size boundary
     /// ```
     /// use ptero::binary::{Bit, BinaryConversionError, BitVec};
@@ -126,7 +126,7 @@ impl TryFrom<BitVec> for Vec<u8> {
     ///                             .into();
     /// let result: Result<Vec<u8>, BinaryConversionError> = TryFrom::try_from(array);
     /// assert!(!result.is_ok());
-    /// ``` 
+    /// ```
     fn try_from(bit_vec: BitVec) -> Result<Vec<u8>, Self::Error> {
         let mut bytes = Vec::<u8>::default();
         let mut index = 0;
@@ -173,7 +173,7 @@ impl fmt::Display for BinaryConversionError {
 
 impl Error for BinaryConversionError {}
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct BinaryPattern(u8);
 
 impl BinaryPattern {
@@ -203,7 +203,7 @@ impl BinaryPattern {
 
 /// [Bit] sequence iterator.
 /// It enables user to read [Bits](Bit) from any iterator that provides bytes as `u8`.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct BitIterator<'a> {
     bytes: &'a [u8],
     index: usize,
