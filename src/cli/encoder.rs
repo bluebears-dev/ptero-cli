@@ -1,7 +1,7 @@
-use std::{error::Error, fs::File, io::Read, sync::mpsc::channel, thread::{self, sleep}, time::Duration};
+use std::{error::Error, fs::File, io::Read, sync::mpsc::channel};
 
 use clap::Clap;
-use log::{error, info, trace, warn};
+use log::{info, trace};
 
 use crate::{
     binary::BitIterator,
@@ -10,7 +10,10 @@ use crate::{
     method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
 };
 
-use super::progress::{ProgressStatus, new_progress_bar, spawn_progress_thread};
+use super::{
+    progress::{new_progress_bar, spawn_progress_thread, ProgressStatus},
+    writer::Writer,
+};
 
 /// Encode the secret into given cover text
 #[derive(Clap)]
@@ -82,14 +85,15 @@ impl EncodeSubCommand {
             determine_pivot_size(cover_text.split_whitespace()),
         )?;
 
-        warn!(
+        let capacity_msg = format!(
             "Required cover text capacity: {}",
             BitIterator::new(&data).count()
         );
+        Writer::warn(&capacity_msg);
         info!("Encoding secret data");
 
         let mut data_iterator = BitIterator::new(&data);
-        
+
         let progress_bar = new_progress_bar(data_iterator.count() as u64);
         let (tx, rx) = channel::<ProgressStatus>();
         progress_bar.set_message("Encoding..");
@@ -98,7 +102,7 @@ impl EncodeSubCommand {
         let method = self.get_method();
         let mut context = PivotByLineContext::new(&cover_text, pivot);
         let stego_result = method.encode(&mut context, &mut data_iterator, Some(&tx));
-        
+
         tx.send(ProgressStatus::Finished).ok();
         progress_bar.finish_with_message("Finished encoding");
 
@@ -128,13 +132,15 @@ pub(crate) fn pick_pivot_from(
 ) -> Result<usize, Box<dyn Error>> {
     Ok(if let Some(value) = user_pivot {
         if value < calculated_pivot {
-            error!("Provided pivot is smaller than the largest word in text! Cannot guarantee encoding will succeed.");
-            return Err("stub".into());
+            return Err("Provided pivot is smaller than the largest word in text! Cannot guarantee encoding will succeed.".into());
         }
-        info!("Using user provided pivot: {}", value);
+        Writer::info(&format!("Using user provided pivot: {}", value));
         value
     } else {
-        info!("Using pivot based on the cover text: {}", calculated_pivot);
+        Writer::info(&format!(
+            "Using pivot based on the cover text: {}",
+            calculated_pivot
+        ));
         calculated_pivot
     })
 }

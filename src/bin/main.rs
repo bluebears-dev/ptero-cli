@@ -1,16 +1,21 @@
 use std::{error::Error, fs::File, io::Write};
 
 use clap::{ArgGroup, Clap};
+use colored::Colorize;
 use log::info;
 
 use ptero::{
     cli::decoder::decode_command,
     cli::{
-        capacity::get_cover_text_capacity, capacity::GetCapacityCommand, decoder::DecodeSubCommand,
-        encoder::EncodeSubCommand, writer::get_writer,
+        capacity::get_cover_text_capacity,
+        capacity::GetCapacityCommand,
+        decoder::DecodeSubCommand,
+        encoder::EncodeSubCommand,
+        writer::{Writer},
     },
     log::{get_file_logger, get_stdout_logger, verbosity_to_level_filter},
 };
+use serde_json::json;
 
 const BANNER: &str = r#"
 
@@ -78,6 +83,7 @@ fn enable_logging(
     verbose: u8,
     log_path: Option<String>,
 ) -> std::result::Result<(), Box<dyn Error>> {
+    // TODO Adjust logging levels to match te current CLI UI
     let level_filter = verbosity_to_level_filter(verbose);
     let mut log_builder = fern::Dispatch::new().chain(get_stdout_logger(level_filter));
 
@@ -93,12 +99,8 @@ fn enable_logging(
 
 fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
     let result = match subcommand {
-        SubCommand::Encode(command) => {
-            command.run()?
-        }
-        SubCommand::Decode(command) => {
-            decode_command(command)?
-        }
+        SubCommand::Encode(command) => command.run()?,
+        SubCommand::Decode(command) => decode_command(command)?,
         SubCommand::GetCapacity(command) => {
             let capacity: u32 = get_cover_text_capacity(command)?;
             let output_str = format!("{} b", capacity);
@@ -112,22 +114,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     let opts: Opts = Opts::parse();
 
     enable_logging(opts.verbose, opts.log_file)?;
-    let writer = get_writer(opts.json);
-    writer.message(BANNER);
+    Writer::print(&BANNER.purple().bold().to_string());
 
     let result = run_subcommand(opts.subcommand);
 
     if let Err(error) = &result {
         let error_message = format!("{}", error);
-        writer.output(&error_message);
+        Writer::error(&error_message);
     } else {
         let cli_output = &result?;
         if let Some(path) = &opts.output {
             let mut output_file = File::create(path)?;
             output_file.write_all(&cli_output)?;
-            info!("Saved to '{}'", &path);
+            Writer::info(&format!("Saved to '{}'", &path));
         } else {
-            writer.output(&String::from_utf8_lossy(&cli_output));
+            let output = &String::from_utf8_lossy(&cli_output);
+            if opts.json {
+                println!(
+                    "{}",
+                    json!({
+                        "type": "success",
+                        "result": output,
+                    })
+                );
+            } else {
+                println!("{}", output);
+            }
         }
     }
     Ok(())

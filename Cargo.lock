@@ -370,6 +370,7 @@ name = "ptero-cli"
 version = "0.2.0"
 dependencies = [
  "assert_cmd",
+ "atty",
  "chrono",
  "clap",
  "colored 2.0.0",

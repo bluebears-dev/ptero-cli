@@ -1,39 +1,34 @@
-use serde_json::json;
+use atty::Stream;
+use colored::Colorize;
+use log::{error, info, warn};
 
-pub trait Writer {
-    fn message(&self, data: &str);
-    fn output(&self, data: &str);
-}
+pub struct Writer;
 
-pub struct JSONWriter;
+impl Writer {
+    pub fn info(data: &str) {
+        if atty::is(Stream::Stdout) {
+            println!("{}", data.green());
+        }
+        info!("{}", data);
+    }        
+    
+    pub fn print(data: &str) {
+        if atty::is(Stream::Stdout) {
+            println!("{}", data);
+        }
+    }    
+    
+    pub fn error(data: &str) {
+        if atty::is(Stream::Stderr) {
+            eprintln!("{}", data.red().bold());
+        }
+        error!("{}", data);
+    }    
 
-impl Writer for JSONWriter {
-    fn message(&self, _data: &str) {}
-
-    fn output(&self, data: &str) {
-        println!("{}", json!({
-            "type": "success",
-            "result": data,
-        }));
-    }
-}
-
-pub struct CLIWriter;
-
-impl Writer for CLIWriter {
-    fn message(&self, data: &str) {
-        println!("{}", data);
-    }
-
-    fn output(&self, data: &str) {
-        println!("{}", data);
-    }
-}
-
-pub fn get_writer(json_output: bool) -> Box<dyn Writer> {
-    if json_output {
-        Box::new(JSONWriter)
-    } else {
-        Box::new(CLIWriter)
+    pub fn warn(data: &str) {
+        if atty::is(Stream::Stderr) {
+            eprintln!("{}", data.yellow());
+        }
+        warn!("{}", data);
     }
 }
