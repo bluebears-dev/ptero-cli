@@ -31,8 +31,10 @@ use log::{Level, LevelFilter};
 /// ```
 pub fn verbosity_to_level_filter(verbosity: u8) -> LevelFilter {
     match verbosity {
-        0 => LevelFilter::Info,
-        1 => LevelFilter::Debug,
+        0 => LevelFilter::Off,
+        1 => LevelFilter::Warn,
+        2 => LevelFilter::Info,
+        3 => LevelFilter::Debug,
         _ => LevelFilter::Trace,
     }
 }
@@ -52,7 +54,7 @@ fn get_level_text(level: &Level) -> &str {
     match level {
         Level::Error => "ERROR",
         Level::Warn => " WARN",
-        Level::Info => "     ",
+        Level::Info => " INFO",
         Level::Debug => "DEBUG",
         Level::Trace => "TRACE",
     }
@@ -64,7 +66,7 @@ fn get_level_text(level: &Level) -> &str {
 ///
 /// # Arguments
 /// * `log_level` - level filter which is used to restrict amount of logs to user
-pub fn get_stdout_logger(log_level: LevelFilter) -> Dispatch {
+pub fn get_stdout_logger() -> Dispatch {
     let colors = get_logging_colors();
 
     fern::Dispatch::new()
@@ -77,7 +79,6 @@ pub fn get_stdout_logger(log_level: LevelFilter) -> Dispatch {
                 message = message,
             ));
         })
-        .level(log_level)
         .chain(std::io::stderr())
 }
 
@@ -98,6 +99,5 @@ pub fn get_file_logger(log_path: &str) -> Dispatch {
                 message,
             ));
         })
-        .level(LevelFilter::Trace)
         .chain(fern::log_file(&log_path).unwrap())
 }

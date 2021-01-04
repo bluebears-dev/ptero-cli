@@ -2,16 +2,12 @@ use std::{error::Error, fs::File, io::Write};
 
 use clap::{ArgGroup, Clap};
 use colored::Colorize;
-use log::info;
 
 use ptero::{
     cli::decoder::decode_command,
     cli::{
-        capacity::get_cover_text_capacity,
-        capacity::GetCapacityCommand,
-        decoder::DecodeSubCommand,
-        encoder::EncodeSubCommand,
-        writer::{Writer},
+        capacity::get_cover_text_capacity, capacity::GetCapacityCommand, decoder::DecodeSubCommand,
+        encoder::EncodeSubCommand, writer::Writer,
     },
     log::{get_file_logger, get_stdout_logger, verbosity_to_level_filter},
 };
@@ -50,7 +46,7 @@ struct Opts {
 
     /// Flag for controlling verbosity of the output logs.
     ///
-    /// To increase verbosity add additional occurrences e.g. `-vv` will print info logs.
+    /// To increase verbosity add additional occurrences e.g. `-v` will print warn logs and so on.
     /// By default only error logs are printed.
     #[clap(short, parse(from_occurrences))]
     verbose: u8,
@@ -64,7 +60,7 @@ struct Opts {
     /// Path to log file.
     ///
     /// By default CLI won't save any logs. If this param is used, CLI will append new logs at the end of the file
-    /// pointed by the path. It is not affected by the `verbose` flag, and saves all the entries (starting from `TRACE`).
+    /// pointed by the path. It is affected by the verbosity flag (`-v`).
     #[clap(long)]
     log_file: Option<String>,
 }
@@ -83,9 +79,11 @@ fn enable_logging(
     verbose: u8,
     log_path: Option<String>,
 ) -> std::result::Result<(), Box<dyn Error>> {
-    // TODO Adjust logging levels to match te current CLI UI
     let level_filter = verbosity_to_level_filter(verbose);
-    let mut log_builder = fern::Dispatch::new().chain(get_stdout_logger(level_filter));
+
+    let mut log_builder = fern::Dispatch::new()
+        .level(level_filter)
+        .chain(get_stdout_logger());
 
     log_builder = if let Some(path) = log_path {
         log_builder.chain(get_file_logger(&path))
