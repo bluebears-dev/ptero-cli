@@ -2,7 +2,7 @@
 authors = ["Paweł Górski <dev.baymax42@gmail.com>"]
 edition = "2018"
 name = "ptero-cli"
-version = "0.2.0"
+version = "0.3.0"
 license-file = "LICENSE"
 readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
