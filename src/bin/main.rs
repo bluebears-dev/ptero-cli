@@ -1,4 +1,4 @@
-use std::{error::Error, fs::File, io::Write};
+use std::{error::Error, fs::File, io::Write, process};
 
 use clap::{ArgGroup, Clap};
 use colored::Colorize;
@@ -119,6 +119,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if let Err(error) = &result {
         let error_message = format!("{}", error);
         Writer::error(&error_message);
+        process::exit(1);
     } else {
         let cli_output = &result?;
         if let Some(path) = &opts.output {

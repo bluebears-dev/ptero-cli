@@ -16,16 +16,17 @@ use log::{Level, LevelFilter};
 /// use ptero::log::verbosity_to_level_filter;
 /// use log::{LevelFilter};
 ///
-/// assert_eq!(verbosity_to_level_filter(0), LevelFilter::Info);
-/// assert_eq!(verbosity_to_level_filter(1), LevelFilter::Debug);
-/// assert_eq!(verbosity_to_level_filter(2), LevelFilter::Trace);
+/// assert_eq!(verbosity_to_level_filter(0), LevelFilter::Off);
+/// assert_eq!(verbosity_to_level_filter(1), LevelFilter::Warn);
+/// assert_eq!(verbosity_to_level_filter(2), LevelFilter::Info);
+/// assert_eq!(verbosity_to_level_filter(3), LevelFilter::Debug);
 /// ```
 /// ## Unrecognized verbosity defaults to trace
 /// ```
 /// use ptero::log::verbosity_to_level_filter;
 /// use log::{LevelFilter};
 ///
-/// assert_eq!(verbosity_to_level_filter(3), LevelFilter::Trace);
+/// assert_eq!(verbosity_to_level_filter(4), LevelFilter::Trace);
 /// assert_eq!(verbosity_to_level_filter(100), LevelFilter::Trace);
 /// assert_eq!(verbosity_to_level_filter(255), LevelFilter::Trace);
 /// ```

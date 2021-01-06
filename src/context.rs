@@ -1,4 +1,4 @@
-use std::{error::Error, fmt, process};
+use std::{error::Error, fmt};
 
 use log::error;
 
@@ -22,7 +22,7 @@ pub trait Context {
     ///
     /// # Returns
     /// Result which is either `&String` or [ContextError]. Returned string is the newly loaded fragment.
-    fn load_text(&mut self) -> Result<&String, ContextError>;
+    fn load_text(&mut self) -> Result<&str, ContextError>;
 }
 
 /// Context used by methods requiring pivot.
@@ -89,17 +89,20 @@ impl PivotByLineContext {
     // Constructs line of maximum length determined by pivot.
     //
     // # Returns
-    // Returns the line or none if there are no words left.
-    //
-    // # Panics and exits
-    // Function can crash if pivot is smaller than the length fo the first peeked word.
-    fn construct_line_by_pivot(&mut self) -> Option<String> {
-        // TODO: Refactor to return error instead of process::exit
-        let mut word = self.cover_text_iter.peek()?;
+    // Returns the line or none if there are no words left. It is a result, 
+    // throws an error if line cannot be constructed but there are still words left.
+    fn construct_line_by_pivot(&mut self) -> Result<Option<String>, ContextError> {
+        let maybe_word = self.cover_text_iter.peek();
 
+        if maybe_word.is_none() {
+            return Ok(None); 
+        }
+
+        let mut word = maybe_word.unwrap();
+        
         if word.len() > self.pivot {
-            error!("Pivot is to small! Stuck at word of length {}.", word.len());
-            process::exit(1);
+            error!("Stuck at word of length {}.", word.len());
+            return Err(ContextError { kind: ContextErrorKind::CannotConstructLine });
         }
         let mut line = String::new();
         while line.len() + word.len() <= self.pivot {
@@ -111,10 +114,10 @@ impl PivotByLineContext {
             if let Some(next_word) = self.cover_text_iter.peek() {
                 word = next_word;
             } else {
-                return Some(line);
+                return Ok(Some(line));
             }
         }
-        Some(line.trim_end().to_string())
+        Ok(Some(line.trim_end().to_string()))
     }
 }
 
@@ -136,10 +139,10 @@ impl Context for PivotByLineContext {
     //
     // # Returns
     // Result which is either the line or [ContextError] if anything fails. 
-    fn load_text(&mut self) -> Result<&String, ContextError> {
-        self.current_text = self.construct_line_by_pivot();
+    fn load_text(&mut self) -> Result<&str, ContextError> {
+        self.current_text = self.construct_line_by_pivot()?;
         self.current_text
-            .as_ref()
+            .as_deref()
             .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 }
@@ -154,6 +157,7 @@ impl Context for PivotByRawLineContext {
     fn get_current_text(&self) -> Result<&String, ContextError> {
         self.current_text
             .as_ref()
+            
             .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 
@@ -161,18 +165,19 @@ impl Context for PivotByRawLineContext {
     //
     // # Returns
     // Result which is either the line or [ContextError] if anything fails. 
-    fn load_text(&mut self) -> Result<&String, ContextError> {
+    fn load_text(&mut self) -> Result<&str, ContextError> {
         self.current_text = self.cover_text_iter.next();
         self.current_text
-            .as_ref()
+            .as_deref()
             .ok_or_else(|| ContextError::new(ContextErrorKind::NoTextLeft))
     }
 }
 
 /// Enum determining the exact context error.
-#[derive(Debug)]
-enum ContextErrorKind {
+#[derive(Debug, Clone, Copy)]
+pub enum ContextErrorKind {
     NoTextLeft,
+    CannotConstructLine
 }
 
 /// Error implementation for [Context]. Exact error message is determined by [ContextErrorKind].
@@ -185,12 +190,17 @@ impl ContextError {
     fn new(kind: ContextErrorKind) -> Self {
         ContextError { kind }
     }
+
+    pub fn kind(&self) -> ContextErrorKind {
+        self.kind
+    }
 }
 
 impl fmt::Display for ContextError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
             ContextErrorKind::NoTextLeft => write!(f, "No cover text left.",),
+            ContextErrorKind::CannotConstructLine => write!(f, "Pivot is too small. Couldn't load the line no longer than the pivot.",),
         }
     }
 }

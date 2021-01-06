@@ -6,10 +6,10 @@ pub struct Writer;
 
 impl Writer {
     pub fn info(data: &str) {
+        info!("{}", data);
         if atty::is(Stream::Stdout) {
             println!("{}", data.green());
         }
-        info!("{}", data);
     }        
     
     pub fn print(data: &str) {
@@ -19,16 +19,16 @@ impl Writer {
     }    
     
     pub fn error(data: &str) {
+        error!("{}", data);
         if atty::is(Stream::Stderr) {
             eprintln!("{}", data.red().bold());
         }
-        error!("{}", data);
     }    
 
     pub fn warn(data: &str) {
+        warn!("{}", data);
         if atty::is(Stream::Stderr) {
             eprintln!("{}", data.yellow());
         }
-        warn!("{}", data);
     }
 }
