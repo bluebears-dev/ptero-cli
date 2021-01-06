@@ -1,10 +1,11 @@
 use clap::Clap;
-use log::{error, info, warn};
-use std::{error::Error, fs};
+use context::ContextErrorKind;
+use log::{debug};
+use std::{error::Error, fs, sync::mpsc::channel};
 
-use crate::{context::{Context, PivotByLineContext}, encoder::{Capacity}, method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod}};
+use crate::{context::{self, Context, PivotByLineContext}, encoder::{Capacity}, method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod}};
 
-use super::encoder::determine_pivot_size;
+use super::{encoder::determine_pivot_size, progress::{ProgressStatus, new_progress_bar, spawn_progress_thread}, writer::Writer};
 
 /// Calculate the minimal capacity for the cover text and given pivot
 #[derive(Clap)]
@@ -47,23 +48,46 @@ pub fn get_cover_text_capacity(args: GetCapacityCommand) -> Result<u32, Box<dyn 
         .map(|string| string.chars())
         .flatten()
         .count();
-    info!("Longest word in the cover text is {}", max_word_length);
+    debug!("Longest word in the cover text is {}", max_word_length);
 
     if max_word_length > args.pivot {
-        warn!("This pivot might not guarantee the secret data will be encodable!");
+        Writer::warn("This pivot might not guarantee the secret data will be encodable!");
     } else if args.pivot >= text_length {
-        error!("Pivot greater than the cover text length, stopping");
-        return Err("Could not determine the capacity for the given cover text".into());
+        return Err("Pivot is greater than the cover text length.".into());
     }
 
-    info!("Calculating the capacity");
-    while let Ok(fragment) = pivot_word_context.load_text() {
-        if fragment.is_empty() {
-            error!("Pivot is too small, stopping");
-            return Err("Could not determine the capacity for the given cover text".into());
+    let progress_bar = new_progress_bar(cover_text.len() as u64);
+    let (tx, rx) = channel::<ProgressStatus>();
+    progress_bar.set_message("Calculating the capacity...");
+    spawn_progress_thread(progress_bar.clone(), rx);
+
+    loop {
+        let result = pivot_word_context.load_text();
+
+        match result {
+            Ok(fragment) => {
+                tx.send(ProgressStatus::Step(fragment.len() as u64)).ok();
+                text_fragment_count += 1;
+            }
+            Err(error) => {
+                match error.kind() {
+                    ContextErrorKind::CannotConstructLine => {
+                        tx.send(ProgressStatus::Finished).ok();
+                        progress_bar.abandon_with_message("Error occurred");
+                        return Err(error.into());
+                    },
+                    ContextErrorKind::NoTextLeft => {
+                        tx.send(ProgressStatus::Finished).ok();
+                        progress_bar.finish_with_message("Capacity calculated");
+                        break;
+                    }
+                }
+            }
         }
-        text_fragment_count += 1;
+        
+        pivot_word_context.next_word();
     }
+
     let method = get_method(args.eluv);
     Ok(text_fragment_count * method.bitrate() as u32)
 }
