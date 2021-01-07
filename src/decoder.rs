@@ -33,7 +33,6 @@ pub trait Decoder<D> where D: Context {
             secret.append(&mut data);
         }
         debug!("Padding bits to byte size boundary");
-        debug!("Unpadded secret data {:?}", &secret);
         while &secret.len() % 8 != 0 {
             secret.push(Bit(0));
         }

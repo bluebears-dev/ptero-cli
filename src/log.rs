@@ -1,9 +1,9 @@
+use colored::Colorize;
 use fern::{
     colors::{Color, ColoredLevelConfig},
     Dispatch,
 };
 use log::{Level, LevelFilter};
-
 /// Converts verbosity number to [LevelFilter](log::LevelFilter) enum.
 /// Used for configuring the logging level.
 /// # Arguments
@@ -73,11 +73,12 @@ pub fn get_stdout_logger() -> Dispatch {
     fern::Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
-                "{color_line}{level_txt}\x1B[0m  {message}",
+                "{color_line}{level_txt}\x1B[0m  [{module}]: {message}",
                 level_txt = get_level_text(&record.level()),
                 color_line =
                     format_args!("\x1B[{}m", colors.get_color(&record.level()).to_fg_str()),
                 message = message,
+                module = &record.target().dimmed(),
             ));
         })
         .chain(std::io::stderr())
