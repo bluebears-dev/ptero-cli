@@ -30,6 +30,7 @@ pub fn run_encode_command(
     data_path: &PathBuf,
     pivot: usize,
     output_path: Option<&PathBuf>,
+    method: &str,
 ) -> Result<Value, Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
     if let Some(path) = output_path {
@@ -39,7 +40,7 @@ pub fn run_encode_command(
     }
     let assert = cmd
         .arg("encode")
-        .arg("--eline")
+        .arg(format!("--{}", method))
         .arg("-c")
         .arg(&cover_path)
         .arg("-d")
@@ -63,6 +64,7 @@ pub fn run_decode_command(
     stego_text: &PathBuf,
     pivot: usize,
     output_path: Option<&PathBuf>,
+    method: &str,
 ) -> Result<Value, Box<dyn Error>> {
     let mut cmd = Command::cargo_bin("ptero_cli").unwrap();
     if let Some(path) = output_path {
@@ -72,7 +74,7 @@ pub fn run_decode_command(
     }
     let assert = cmd
         .arg("decode")
-        .arg("--eline")
+        .arg(format!("--{}", method))
         .arg("-t")
         .arg(&stego_text)
         .arg("--pivot")
