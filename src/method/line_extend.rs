@@ -11,15 +11,29 @@
 //! and the bit 1 occurs.
 use std::error::Error;
 
-use log::{trace};
+use log::trace;
 use regex::Regex;
 
-use crate::{binary::Bit, context::{Context, ContextError, PivotByLineContext, PivotByRawLineContext}, decoder::Decoder, encoder::{Capacity, Encoder, EncoderResult, EncodingError}};
+use crate::{
+    binary::Bit,
+    context::{Context, ContextError, PivotByLineContext, PivotByRawLineContext},
+    decoder::Decoder,
+    encoder::{Capacity, Encoder, EncoderResult, EncodingError},
+};
 
 use super::Method;
 
 /// Character used as the word delimiter.
 pub const ASCII_DELIMITER: char = ' ';
+
+/// Set of possible line endings, the set is different from one used [crate::method::trailing_unicode] as it
+/// includes all possible characters, not the curated set used in encoding.
+pub const POSSIBLE_LINE_ENDINGS_SET: [char; 32] = [
+    '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
+    '\u{2007}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{200C}', '\u{200D}', '\u{200E}', '\u{2028}',
+    '\u{202A}', '\u{202C}', '\u{202D}', '\u{202F}', '\u{205F}', '\u{2060}', '\u{2061}', '\u{2062}',
+    '\u{2063}', '\u{2064}', '\u{2066}', '\u{2068}', '\u{2069}', '\u{3000}', '\u{FEFF}', '\u{00A0}',
+];
 
 /// Unit structure representing the line extension method.
 ///
@@ -65,19 +79,24 @@ impl Encoder<PivotByLineContext> for LineExtendMethod {
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
-            _ => EncoderResult::Success,
+            _ => {
+                trace!("Leaving line as-is");
+                EncoderResult::Success
+            }
         })
     }
 }
 
 impl Decoder<PivotByRawLineContext> for LineExtendMethod {
     fn partial_decode(&self, context: &PivotByRawLineContext) -> Result<Vec<Bit>, ContextError> {
-        let pattern = Regex::new(r"\s+").unwrap();
-        let cleaned_line = pattern.replace_all(context.get_current_text()?, " ");
-        let bit = if cleaned_line.trim_end().len() > context.get_pivot() {
+        let repeated_whitespace_pattern = Regex::new(r"\s+").unwrap();
+        let cleaned_line = repeated_whitespace_pattern
+            .replace_all(context.get_current_text()?, " ");
+        let bit = if cleaned_line.trim_end_matches(&POSSIBLE_LINE_ENDINGS_SET[..]).len() > context.get_pivot() {
             trace!("Line is extended over the {} length", context.get_pivot());
             Bit(1)
         } else {
+            trace!("Line not extended");
             Bit(0)
         };
         Ok(vec![bit])

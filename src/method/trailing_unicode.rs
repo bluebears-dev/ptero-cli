@@ -124,8 +124,12 @@ where
         data: &mut dyn Iterator<Item = Bit>,
     ) -> Result<EncoderResult, Box<dyn Error>> {
         let set_capacity = self.bitrate();
-        let next_n_bits: BitVec = data.take(set_capacity).collect::<Vec<Bit>>().into();
-        let number: u32 = next_n_bits.into();
+        let next_n_bits = data.take(set_capacity).collect::<Vec<Bit>>();
+        // We might not take exactly 5 bits, lets ensure we properly pad with 0 bits
+        let amount_bits_taken = next_n_bits.len(); 
+        let mut number: u32 = BitVec::from(next_n_bits).into();
+        number <<= set_capacity - amount_bits_taken;
+
         trace!(
             "Took {} bits and assembled a number: {}",
             set_capacity,
@@ -150,18 +154,18 @@ where
 {
     fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         if let Some(character) = context.get_current_text()?.chars().last() {
-            if character.is_whitespace() {
-                trace!("Found '{:?}' at the end of the line", character);
-                let data: Vec<Bit> =
-                    BitVec::from(self.unicode_set.character_to_bits(&character)).into();
-                let data_length = data.len();
-                // Skip the unnecessary zeroes from the beginning
-                let data_iter = data
-                    .into_iter()
-                    .skip(data_length - self.bitrate());
-                let decoded_data = data_iter.collect::<Vec<Bit>>();
-                return Ok(decoded_data);
-            }
+            let decoded_number = self.unicode_set.character_to_bits(&character);
+            trace!(
+                "Found {:?} at the end of the line, decoded into {}",
+                &character,
+                decoded_number
+            );
+            let data: Vec<Bit> = BitVec::from(decoded_number).into();
+            let data_length = data.len();
+            // Skip the unnecessary zeroes from the beginning
+            let data_iter = data.into_iter().skip(data_length - self.bitrate());
+            let decoded_data = data_iter.collect::<Vec<Bit>>();
+            return Ok(decoded_data);
         }
         let zero_bits = vec![0]
             .repeat(self.bitrate())

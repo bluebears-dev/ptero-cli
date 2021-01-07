@@ -54,7 +54,10 @@ where
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
-            _ => EncoderResult::Success,
+            _ => {
+                trace!("Skipping trailing whitespace");
+                EncoderResult::Success
+            }
         })
     }
 }
@@ -68,6 +71,7 @@ where
             trace!("Found trailing whitespace");
             Bit(1)
         } else {
+            trace!("No trailing whitespace");
             Bit(0)
         };
         Ok(vec![bit])

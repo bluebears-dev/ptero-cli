@@ -64,7 +64,7 @@ mod test {
 
         assert_eq!(
             &stego_text,
-            "a b c\u{2028}\na  b\u{2062}\nc  a\u{200b}\nb c a \nb c\na b\nc \n"
+            "a b c\u{2028}\na  b\u{2062}\nc  a\u{200b}\nb c a\u{2028}\nb c\na b\nc \n"
         );
         Ok(())
     }

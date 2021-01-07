@@ -66,7 +66,10 @@ where
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
-            _ => EncoderResult::Success,
+            _ => {
+                trace!("Skipping double whitespace");
+                EncoderResult::Success
+            }
         })
     }
 }
@@ -85,6 +88,7 @@ where
             }
             seen_whitespace = is_whitespace;
         }
+        trace!("No double whitespace found");
         Ok(vec![Bit(0)])
     }
 }
