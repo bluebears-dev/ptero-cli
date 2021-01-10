@@ -6,7 +6,7 @@ use colored::Colorize;
 use ptero::{
     cli::decoder::decode_command,
     cli::{
-        capacity::get_cover_text_capacity, capacity::GetCapacityCommand, decoder::DecodeSubCommand,
+        capacity::GetCapacityCommand, decoder::DecodeSubCommand,
         encoder::EncodeSubCommand, writer::Writer,
     },
     log::{get_file_logger, get_stdout_logger, verbosity_to_level_filter},
@@ -100,7 +100,7 @@ fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
         SubCommand::Encode(command) => command.run()?,
         SubCommand::Decode(command) => decode_command(command)?,
         SubCommand::GetCapacity(command) => {
-            let capacity: u32 = get_cover_text_capacity(command)?;
+            let capacity: u32 = command.run()?;
             let output_str = format!("{} b", capacity);
             output_str.as_bytes().into()
         }
