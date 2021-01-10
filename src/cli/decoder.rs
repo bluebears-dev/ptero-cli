@@ -1,4 +1,4 @@
-use std::{error::Error, fs, sync::mpsc::channel};
+use std::{error::Error, fs::{File}, io::Read, sync::mpsc::channel};
 
 use clap::Clap;
 
@@ -31,28 +31,80 @@ pub struct DecodeSubCommand {
     extended_line: bool,
 }
 
-pub fn get_method(eluv: bool) -> Box<dyn Decoder<PivotByRawLineContext>> {
-    if eluv {
-        Box::new(ELUVMethod::default())
-    } else {
-        Box::new(ExtendedLineMethod::default())
+impl DecodeSubCommand {
+    pub fn run(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let stego_text_file_input= File::open(&self.text)?;
+
+        self.do_decode(stego_text_file_input)
+    }
+
+    pub(crate) fn get_method(&self) -> Box<dyn Decoder<PivotByRawLineContext>> {
+        if self.eluv {
+            Box::new(ELUVMethod::default())
+        } else {
+            Box::new(ExtendedLineMethod::default())
+        }
+    }
+    
+    pub fn do_decode(&self, mut stego_input: impl Read) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut stego_text = String::new();
+
+        stego_input.read_to_string(&mut stego_text)?;
+        let decoder = self.get_method();
+        let mut context = PivotByRawLineContext::new(stego_text.as_str(), self.pivot);
+    
+        let progress_bar = new_progress_bar(stego_text.len() as u64);
+        let (tx, rx) = channel::<ProgressStatus>();
+        progress_bar.set_message("Decoding cover text...");
+        spawn_progress_thread(progress_bar.clone(), rx);
+    
+        let result =  decoder.decode(&mut context, Some(&tx));
+        
+        tx.send(ProgressStatus::Finished).ok();
+        progress_bar.finish_with_message("Finished decoding");
+    
+        result
     }
 }
 
-pub fn decode_command(args: DecodeSubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
-    let cover_text = fs::read_to_string(args.text)?;
-    let decoder = get_method(args.eluv);
-    let mut context = PivotByRawLineContext::new(cover_text.as_str(), args.pivot);
 
-    let progress_bar = new_progress_bar(cover_text.len() as u64);
-    let (tx, rx) = channel::<ProgressStatus>();
-    progress_bar.set_message("Decoding cover text...");
-    spawn_progress_thread(progress_bar.clone(), rx);
 
-    let result =  decoder.decode(&mut context, Some(&tx));
+#[allow(unused_imports)]
+mod test {
+    use std::{error::Error, io::Read};
+    use crate::binary::Bit;
+
+    use super::DecodeSubCommand;
+
+    #[test]
+    fn decodes_zeroes_if_not_data_encoded_extended_line() -> Result<(), Box<dyn Error>> {
+        let stego_input = "a b";
+
+        let command = DecodeSubCommand {
+            text: "stub".into(),
+            pivot: 3,
+            eluv: false,
+            extended_line: true,
+        };
+
+        let result = command.do_decode(stego_input.as_bytes());
+        assert_eq!(result.ok(), Some(vec![0]));
+        Ok(())
+    }    
     
-    tx.send(ProgressStatus::Finished).ok();
-    progress_bar.finish_with_message("Finished decoding");
+    #[test]
+    fn decodes_zeroes_if_not_data_encoded_eluv() -> Result<(), Box<dyn Error>> {
+        let stego_input = "a b";
 
-    result
+        let command = DecodeSubCommand {
+            text: "stub".into(),
+            pivot: 3,
+            eluv: true,
+            extended_line: false,
+        };
+
+        let result = command.do_decode(stego_input.as_bytes());
+        assert_eq!(result.ok(), Some(vec![0]));
+        Ok(())
+    }
 }

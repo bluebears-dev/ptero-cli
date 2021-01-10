@@ -4,7 +4,6 @@ use clap::{ArgGroup, Clap};
 use colored::Colorize;
 
 use ptero::{
-    cli::decoder::decode_command,
     cli::{
         capacity::GetCapacityCommand, decoder::DecodeSubCommand,
         encoder::EncodeSubCommand, writer::Writer,
@@ -98,7 +97,7 @@ fn enable_logging(
 fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
     let result = match subcommand {
         SubCommand::Encode(command) => command.run()?,
-        SubCommand::Decode(command) => decode_command(command)?,
+        SubCommand::Decode(command) => command.run()?,
         SubCommand::GetCapacity(command) => {
             let capacity: u32 = command.run()?;
             let output_str = format!("{} b", capacity);
