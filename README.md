@@ -9,6 +9,8 @@
 It implements the algorithm presented [here](https://link.springer.com/chapter/10.1007/978-3-319-76687-4_15). 
 However, it also includes an extended implementation of specified algorithm, called __ELUV__. See `help` of the tool for more info on the usage.
 
+The tool was tested in *Facebook's Messenger* and *Twitter* - both methods were working correctly. You can also read more about the method [here](https://github.com/baymax42/ptero-cli/wiki/Methods).
+
 ---
 
 <!-- TOC -->
