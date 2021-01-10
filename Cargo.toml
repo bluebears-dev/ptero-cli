@@ -2,6 +2,8 @@
 authors = ["Paweł Górski <dev.baymax42@gmail.com>"]
 edition = "2018"
 name = "ptero-cli"
+description = "A text steganography CLI tool for Social Media"
+keywords = ["steganography", "encoding", "decoding", "text", "cli"]
 version = "0.3.2"
 license-file = "LICENSE"
 readme = "README.md"
