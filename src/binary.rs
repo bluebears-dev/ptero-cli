@@ -176,6 +176,7 @@ impl TryFrom<BitVec> for Vec<u8> {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl fmt::Display for Bit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -193,6 +194,7 @@ impl BinaryConversionError {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl fmt::Display for BinaryConversionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Binary conversion error")

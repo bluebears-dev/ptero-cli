@@ -117,6 +117,7 @@ impl EncodingError {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl fmt::Display for EncodingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.kind {

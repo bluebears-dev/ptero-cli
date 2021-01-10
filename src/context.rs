@@ -196,6 +196,7 @@ impl ContextError {
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 impl fmt::Display for ContextError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
