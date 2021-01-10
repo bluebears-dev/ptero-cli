@@ -8,7 +8,35 @@ const CLEARED_PATTERN: u8 = 0b00000000;
 pub struct Bit(pub u8);
 
 /// Wrapper for `Vec<Bit>` used for implementing `From` trait.
+#[derive(Debug)]
 pub struct BitVec(Vec<Bit>);
+
+impl BitVec {
+    /// Constructs a BitVec of given `length` filled with `bit_val`.
+    ///
+    /// # Arguments
+    ///
+    /// * `bit_val` - value that will be set to the [Bit]
+    /// * `length` - length of the output vector
+    ///
+    /// # Examples
+    ///
+    /// ## Create a [BitVec] filled with 8 zero bits
+    /// ```
+    /// use ptero::binary::{Bit, BitVec};
+    ///
+    /// let vec: Vec<Bit> = BitVec::filled_with(0, 8).into();
+    /// assert_eq!(vec, &[Bit(0), Bit(0), Bit(0), Bit(0), Bit(0), Bit(0), Bit(0), Bit(0)]);    
+    /// ```
+    pub fn filled_with(bit_val: u8, length: usize) -> BitVec {
+        vec![bit_val]
+            .repeat(length)
+            .iter()
+            .map(|v| Bit(*v))
+            .collect::<Vec<Bit>>()
+            .into()
+    }
+}
 
 impl From<BitVec> for Vec<Bit> {
     fn from(bit_vec: BitVec) -> Self {

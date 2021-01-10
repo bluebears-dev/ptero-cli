@@ -167,12 +167,8 @@ where
             let decoded_data = data_iter.collect::<Vec<Bit>>();
             return Ok(decoded_data);
         }
-        let zero_bits = vec![0]
-            .repeat(self.bitrate())
-            .iter()
-            .map(|v| Bit(*v))
-            .collect::<Vec<Bit>>();
-        Ok(zero_bits)
+
+        Ok(BitVec::filled_with(0, self.bitrate()).into())
     }
 }
 
