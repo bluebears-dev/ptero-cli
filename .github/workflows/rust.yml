@@ -11,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build-amd64:
     runs-on: ubuntu-latest
 
     steps:
@@ -67,5 +67,50 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: target/release/ptero_cli_amd64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # Prepare environment
+      - uses: actions/checkout@v2
+
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+            components: rustfmt, clippy
+
+      # Run checks and tests
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+
+      - name: Clean
+        uses: actions-rs/cargo@v1
+        with:
+          command: clean      
+          
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+  
+      # Build the binary
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --verbose --all --release
+
+      # Release if the tag was pushed
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: target/release/ptero_cli.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
