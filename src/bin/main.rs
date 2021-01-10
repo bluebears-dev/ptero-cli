@@ -74,6 +74,7 @@ enum SubCommand {
     GetCapacity(GetCapacityCommand),
 }
 
+#[cfg(not(tarpaulin_include))]
 fn enable_logging(
     verbose: u8,
     log_path: Option<String>,
@@ -94,6 +95,7 @@ fn enable_logging(
     Ok(())
 }
 
+#[cfg(not(tarpaulin_include))]
 fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
     let result = match subcommand {
         SubCommand::Encode(command) => command.run()?,
@@ -106,7 +108,7 @@ fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
     };
     Ok(result)
 }
-
+#[cfg(not(tarpaulin_include))]
 fn main() -> Result<(), Box<dyn Error>> {
     let opts: Opts = Opts::parse();
 

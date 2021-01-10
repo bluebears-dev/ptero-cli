@@ -4,6 +4,7 @@ use log::{error, info, warn};
 
 pub struct Writer;
 
+#[cfg(not(tarpaulin_include))]
 impl Writer {
     pub fn info(data: &str) {
         info!("{}", data);
