@@ -10,6 +10,8 @@
 //! It it at most 5 bits per line with [FULL_UNICODE_CHARACTER_SET].
 //!
 //! Encoder does not inform if there is not data left!
+pub mod character_sets;
+
 use std::error::Error;
 
 use crate::{
@@ -22,158 +24,42 @@ use log::trace;
 
 use crate::binary::Bit;
 
+use self::character_sets::{CharacterSetType, GetCharacterSet};
+
 use super::Method;
-
-/// This trait is used for reading unicode set data.
-///
-/// New sets should implement `get_set` which provides the array with
-/// unicode characters used by the method.
-pub trait UnicodeSet {
-    /// Returns the array of characters representing the Unicode characters that should be used by the method.
-    /// The size of the array should be a power od 2. This is a requirement to be able to encode integer amount of bits.
-    fn get_set(&self) -> &[char];
-
-    fn size(&self) -> usize {
-        self.get_set().len()
-    }
-
-    /// Maps index (in other words, the value) to the character in the set.
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - the value which will be mapped (i.e. index of the character in the set)
-    ///
-    ///
-    /// # Examples
-    /// ## Gets character which is in the set
-    /// ```
-    /// use ptero::method::trailing_unicode::{UnicodeSet, FullUnicodeSet};
-    ///
-    /// let set = FullUnicodeSet;
-    ///
-    /// assert_eq!(set.get_character(1), Some(&'\u{0020}'));
-    /// assert_eq!(set.get_character(2), Some(&'\u{2000}'));
-    /// assert_eq!(set.get_character(31), Some(&'\u{FEFF}'));
-    /// ``` 
-    /// ## Returns None if value cannot be mapped
-    /// ```
-    /// use ptero::method::trailing_unicode::{UnicodeSet, FullUnicodeSet};
-    ///
-    /// let set = FullUnicodeSet;
-    ///
-    /// assert_eq!(set.get_character(0), None);
-    /// ```
-    /// # Panics
-    /// The method panics if the provided value is larger than the set size. 
-    /// ## Panics if index exceeds the size of the set
-    /// ```should_panic
-    /// use ptero::method::trailing_unicode::{UnicodeSet, FullUnicodeSet};
-    ///
-    /// let set = FullUnicodeSet;
-    ///
-    /// set.get_character(100);
-    /// ```
-    fn get_character(&self, index: u32) -> Option<&char> {
-        let index = index as usize;
-        if index == 0 {
-            None
-        } else if index > self.size() {
-            panic!("Too large number for given unicode set - cannot encode this amount of bits");
-        } else {
-            self.get_set().get(index - 1)
-        }
-    }
-
-    /// Returns the number represented by the character.
-    /// The number is the bit representation of the character - or in other words the index.
-    /// If the character is not recognized it returns 0 by default.
-    ///
-    /// # Arguments
-    ///
-    /// * `chr` - character which will be converted
-    ///
-    /// # Examples
-    /// ## Converts recognized character
-    /// ```
-    /// use ptero::method::trailing_unicode::{UnicodeSet, FullUnicodeSet};
-    ///
-    /// let set = FullUnicodeSet {};
-    /// let value = set.character_to_bits(&'\u{200A}');
-    ///
-    /// assert_eq!(value, 11);
-    /// ```
-    /// ## Converts unrecognized character to 0
-    /// ```
-    /// use ptero::method::trailing_unicode::{UnicodeSet, FullUnicodeSet};
-    ///
-    /// let set = FullUnicodeSet {};
-    /// let value = set.character_to_bits(&'A');
-    ///
-    /// assert_eq!(value, 0);
-    /// ```
-    fn character_to_bits(&self, chr: &char) -> u32 {
-        if let Some(pos) = self.get_set().iter().position(|x| x == chr) {
-            (pos + 1) as u32
-        } else {
-            0
-        }
-    }
-}
-
-/// Full set of used Unicode whitespace and invisible special chars - from different width spaces
-/// to formatting chars and zero-width spaces.
-pub const FULL_UNICODE_CHARACTER_SET: [char; 31] = [
-    '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
-    '\u{2007}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{200C}', '\u{200D}', '\u{200E}', '\u{2028}',
-    '\u{202A}', '\u{202C}', '\u{202D}', '\u{202F}', '\u{205F}', '\u{2060}', '\u{2061}', '\u{2062}',
-    '\u{2063}', '\u{2064}', '\u{2066}', '\u{2068}', '\u{2069}', '\u{3000}', '\u{FEFF}',
-];
-/// Unit struct representing the [FULL_UNICODE_CHARACTER_SET].
-pub struct FullUnicodeSet;
-
-impl UnicodeSet for FullUnicodeSet {
-    fn get_set(&self) -> &[char] {
-        &FULL_UNICODE_CHARACTER_SET
-    }
-}
 
 /// Trailing unicode encoder for generic Unicode character sets.
 /// It uses the [UnicodeSet] to get the character given the n-bits
 /// (where n is the binary logarithm of the set size).
 ///
 /// Accepts any [Context](crate::context::Context).
-pub struct TrailingUnicodeMethod<T: UnicodeSet> {
-    unicode_set: T,
+pub struct TrailingUnicodeMethod {
+    character_set: CharacterSetType,
 }
 
-impl Default for TrailingUnicodeMethod<FullUnicodeSet> {
+impl Default for TrailingUnicodeMethod {
     fn default() -> Self {
-        Self::new(FullUnicodeSet {})
+        Self::new(CharacterSetType::FullUnicodeSet)
     }
 }
 
-impl<T> TrailingUnicodeMethod<T>
-where
-    T: UnicodeSet,
-{
-    pub fn new(unicode_set: T) -> Self {
-        TrailingUnicodeMethod { unicode_set }
+impl TrailingUnicodeMethod {
+    pub fn new(unicode_set: CharacterSetType) -> Self {
+        TrailingUnicodeMethod {
+            character_set: unicode_set,
+        }
     }
 }
 
-impl<T> Capacity for TrailingUnicodeMethod<T>
-where
-    T: UnicodeSet,
-{
+impl Capacity for TrailingUnicodeMethod {
     fn bitrate(&self) -> usize {
         let amount_of_bits = std::mem::size_of::<usize>() * 8;
-        amount_of_bits - self.unicode_set.size().leading_zeros() as usize
+        amount_of_bits - self.character_set.size().leading_zeros() as usize
     }
 }
 
-impl<T, E> Encoder<E> for TrailingUnicodeMethod<T>
+impl<E> Encoder<E> for TrailingUnicodeMethod
 where
-    T: UnicodeSet,
     E: Context,
 {
     fn partial_encode(
@@ -184,7 +70,7 @@ where
         let set_capacity = self.bitrate();
         let next_n_bits = data.take(set_capacity).collect::<Vec<Bit>>();
         // We might not take exactly 5 bits, lets ensure we properly pad with 0 bits
-        let amount_bits_taken = next_n_bits.len(); 
+        let amount_bits_taken = next_n_bits.len();
         let mut number: u32 = BitVec::from(next_n_bits).into();
         number <<= set_capacity - amount_bits_taken;
 
@@ -193,7 +79,7 @@ where
             set_capacity,
             number
         );
-        if let Some(character) = self.unicode_set.get_character(number) {
+        if let Some(character) = self.character_set.get_character(number) {
             trace!(
                 "Putting unicode character {:?} at the end of the line",
                 character
@@ -205,14 +91,13 @@ where
     }
 }
 
-impl<T, D> Decoder<D> for TrailingUnicodeMethod<T>
+impl<D> Decoder<D> for TrailingUnicodeMethod
 where
-    T: UnicodeSet,
     D: Context,
 {
     fn partial_decode(&self, context: &D) -> Result<Vec<Bit>, ContextError> {
         if let Some(character) = context.get_current_text()?.chars().last() {
-            let decoded_number = self.unicode_set.character_to_bits(&character);
+            let decoded_number = self.character_set.character_to_bits(&character);
             trace!(
                 "Found {:?} at the end of the line, decoded into {}",
                 &character,
@@ -230,9 +115,8 @@ where
     }
 }
 
-impl<T, E, D> Method<E, D> for TrailingUnicodeMethod<T>
+impl<E, D> Method<E, D> for TrailingUnicodeMethod
 where
-    T: UnicodeSet,
     E: Context,
     D: Context,
 {

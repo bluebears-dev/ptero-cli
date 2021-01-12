@@ -8,6 +8,8 @@
 //!
 //! For more info read docs on each one of the above encoders.
 
+use trailing_unicode::character_sets::{CharacterSetType};
+
 use crate::{
     context::{PivotByLineContext, PivotByRawLineContext},
     impl_complex_decoder, impl_complex_encoder,
@@ -21,12 +23,12 @@ pub struct ELUVMethod {
 }
 
 impl ELUVMethod {
-    fn new() -> Self {
+    pub fn new(set: CharacterSetType) -> Self {
         ELUVMethod {
             methods: vec![
                 Box::new(random_whitespace::RandomWhitespaceMethod::default()),
                 Box::new(line_extend::LineExtendMethod::default()),
-                Box::new(trailing_unicode::TrailingUnicodeMethod::default()),
+                Box::new(trailing_unicode::TrailingUnicodeMethod::new(set)),
             ],
         }
     }
@@ -34,7 +36,13 @@ impl ELUVMethod {
 
 impl Default for ELUVMethod {
     fn default() -> Self {
-        Self::new()
+        ELUVMethod {
+            methods: vec![
+                Box::new(random_whitespace::RandomWhitespaceMethod::default()),
+                Box::new(line_extend::LineExtendMethod::default()),
+                Box::new(trailing_unicode::TrailingUnicodeMethod::default()),
+            ],
+        }
     }
 }
 
