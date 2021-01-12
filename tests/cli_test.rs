@@ -1,10 +1,15 @@
+use assert_cmd::Command;
 use log::{debug, info};
 use std::{error::Error, fs, panic, path::PathBuf};
-use utils::{global_setup, run_encode_command, run_decode_command};
+use utils::{global_setup, run_decode_command, run_encode_command};
 
 mod utils;
 
-fn check_if_does_not_fail_when_encoding_over_ascii_cover(data: &PathBuf, cover: &PathBuf, method: &str) -> Result<(), Box<dyn Error>> {
+fn check_if_does_not_fail_when_encoding_over_ascii_cover(
+    data: &PathBuf,
+    cover: &PathBuf,
+    method: &str,
+) -> Result<(), Box<dyn Error>> {
     debug!("Checking for method: {}", method);
 
     debug!("Encoding to JSON format");
@@ -13,7 +18,11 @@ fn check_if_does_not_fail_when_encoding_over_ascii_cover(data: &PathBuf, cover: 
     Ok(())
 }
 
-fn check_if_correctly_decodes_data_from_utf8_stego_text(data: &PathBuf, stego_text: &PathBuf, method: &str) -> Result<(), Box<dyn Error>> {
+fn check_if_correctly_decodes_data_from_utf8_stego_text(
+    data: &PathBuf,
+    stego_text: &PathBuf,
+    method: &str,
+) -> Result<(), Box<dyn Error>> {
     debug!("Checking for method: {}", method);
 
     debug!("Decoding to JSON format");
@@ -33,7 +42,11 @@ fn check_if_correctly_decodes_data_from_utf8_stego_text(data: &PathBuf, stego_te
     Ok(())
 }
 
-fn check_if_encodes_and_decodes_the_same_data(data: &PathBuf, cover: &PathBuf, method: &str) -> Result<(), Box<dyn Error>> {
+fn check_if_encodes_and_decodes_the_same_data(
+    data: &PathBuf,
+    cover: &PathBuf,
+    method: &str,
+) -> Result<(), Box<dyn Error>> {
     debug!("Checking for method: {}", method);
     let encoding_output_path = PathBuf::from("encode_out");
 
@@ -57,7 +70,6 @@ fn check_if_encodes_and_decodes_the_same_data(data: &PathBuf, cover: &PathBuf, m
 
     Ok(())
 }
-
 
 #[test]
 fn does_not_fail_when_encoding_over_ascii_cover() -> Result<(), Box<dyn Error>> {
@@ -84,7 +96,8 @@ fn does_not_fail_when_encoding_over_utf8_cover() -> Result<(), Box<dyn Error>> {
 }
 
 #[test]
-fn correctly_decodes_data_from_utf8_stego_text_when_eline_method_is_used() -> Result<(), Box<dyn Error>> {
+fn correctly_decodes_data_from_utf8_stego_text_when_eline_method_is_used(
+) -> Result<(), Box<dyn Error>> {
     global_setup();
     let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     res_dir.push("resources");
@@ -97,7 +110,6 @@ fn correctly_decodes_data_from_utf8_stego_text_when_eline_method_is_used() -> Re
     check_if_correctly_decodes_data_from_utf8_stego_text(&data_path, &stego_path_eluv, "eluv")
 }
 
-
 #[test]
 fn encodes_and_decodes_the_same_data() -> Result<(), Box<dyn Error>> {
     global_setup();
@@ -109,4 +121,80 @@ fn encodes_and_decodes_the_same_data() -> Result<(), Box<dyn Error>> {
 
     check_if_encodes_and_decodes_the_same_data(&data_path, &cover_path, "eline")?;
     check_if_encodes_and_decodes_the_same_data(&data_path, &cover_path, "eluv")
+}
+
+#[test]
+fn eluv_encode_command_passes_without_set_param() -> Result<(), Box<dyn Error>> {
+    global_setup();
+    let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    res_dir.push("resources");
+
+    let data_path = res_dir.join("data.txt");
+    let cover_path = res_dir.join("cover/cover_ascii.txt");
+
+    Command::cargo_bin("ptero_cli")
+        .unwrap()
+        .arg("encode")
+        .arg("--eluv")
+        .arg("-c")
+        .arg(&cover_path)
+        .arg("-d")
+        .arg(&data_path)
+        .arg("--pivot")
+        .arg("50")
+        .assert()
+        .success();
+    Ok(())
+}
+
+#[test]
+fn eluv_encode_command_passes_with_set_param() -> Result<(), Box<dyn Error>> {
+    global_setup();
+    let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    res_dir.push("resources");
+
+    let data_path = res_dir.join("data.txt");
+    let cover_path = res_dir.join("cover/cover_ascii.txt");
+
+    Command::cargo_bin("ptero_cli")
+        .unwrap()
+        .arg("encode")
+        .arg("--eluv")
+        .arg("-c")
+        .arg(&cover_path)
+        .arg("-d")
+        .arg(&data_path)
+        .arg("--pivot")
+        .arg("50")
+        .arg("--set")
+        .arg("full")
+        .assert()
+        .success();
+    Ok(())
+}
+
+#[test]
+fn eluv_encode_command_fail_when_wrong_set_param_provided() -> Result<(), Box<dyn Error>> {
+    global_setup();
+    let mut res_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    res_dir.push("resources");
+
+    let data_path = res_dir.join("data.txt");
+    let cover_path = res_dir.join("cover/cover_ascii.txt");
+
+    Command::cargo_bin("ptero_cli")
+        .unwrap()
+        .arg("encode")
+        .arg("--eluv")
+        .arg("-c")
+        .arg(&cover_path)
+        .arg("-d")
+        .arg(&data_path)
+        .arg("--pivot")
+        .arg("50")
+        .arg("--set")
+        .arg("WRONG_SET_PARAM")
+        .assert()
+        .failure();
+    Ok(())
 }

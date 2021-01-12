@@ -7,13 +7,24 @@ use crate::{
     binary::BitIterator,
     context::PivotByLineContext,
     encoder::Encoder,
-    method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
+    method::{
+        complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
+        trailing_unicode::character_sets::CharacterSetType,
+    },
 };
 
 use super::{
     progress::{new_progress_bar, spawn_progress_thread, ProgressStatus},
     writer::Writer,
 };
+
+#[derive(Clap, Debug, PartialEq)]
+pub(crate) enum ELUVCharacterSet {
+    FourBit,
+    ThreeBit,
+    TwoBit,
+    Full,
+}
 
 /// Encode the secret into given cover text
 #[derive(Clap)]
@@ -37,7 +48,7 @@ pub struct EncodeSubCommand {
     /// Use ELUV method for encoding.
     ///
     /// The ELUV method is a combination of three smaller encoders.
-    /// Random Whitespace - which puts randomly double whitepsace between words,
+    /// Random Whitespace - which puts randomly double whitespace between words,
     /// Line Extend - which uses pivot to determine the size of the line,
     /// Trailing Unicode - which puts one of the predefined Unicode invisible chars
     /// at the end of the line during encoding.
@@ -46,10 +57,17 @@ pub struct EncodeSubCommand {
     #[clap(long, group = "method_args")]
     eluv: bool,
 
+    /// Override a default set - can only be used with ELUV method!
+    ///
+    /// Provides a different set for the ELUV command to use. 
+    /// Please note, that it may change the method's bitrate!
+    #[clap(long, arg_enum, requires = "eluv")]
+    set: Option<ELUVCharacterSet>,
+
     /// Use Extended Line method for encoding.
     ///
     /// The Extended Line method is a combination of three smaller encoders.
-    /// Random Whitespace - which puts randomly double whitepsace between words,
+    /// Random Whitespace - which puts randomly double whitespace between words,
     /// Line Extend - which uses pivot to determine the size of the line,
     /// Trailing Whitespace - which puts whitespace at the end of the line during encoding.
     ///
@@ -111,11 +129,25 @@ impl EncodeSubCommand {
 
     pub(crate) fn get_method(&self) -> Box<dyn Encoder<PivotByLineContext>> {
         if self.eluv {
-            Box::new(ELUVMethod::default())
+            Box::new(ELUVMethod::new(get_character_set_type(&self.set)))
         } else {
             Box::new(ExtendedLineMethod::default())
         }
     }
+}
+
+pub(crate) fn get_character_set_type(set_option: &Option<ELUVCharacterSet>) -> CharacterSetType {
+    if let Some(char_set) = set_option {
+        match char_set {
+            ELUVCharacterSet::FourBit => CharacterSetType::FourBitUnicodeSet,
+            ELUVCharacterSet::ThreeBit => CharacterSetType::ThreeBitUnicodeSet,
+            ELUVCharacterSet::TwoBit => CharacterSetType::TwoBitUnicodeSet,
+            ELUVCharacterSet::Full => CharacterSetType::FullUnicodeSet,
+        }
+    } else {
+        CharacterSetType::FullUnicodeSet
+    }
+   
 }
 
 pub(crate) fn determine_pivot_size<'a>(words: impl Iterator<Item = &'a str>) -> usize {
@@ -149,7 +181,9 @@ pub(crate) fn pick_pivot_from(
 mod test {
     use std::{error::Error, io::Read};
 
-    use super::EncodeSubCommand;
+    use crate::method::trailing_unicode::character_sets::CharacterSetType;
+
+    use super::{ELUVCharacterSet, EncodeSubCommand, get_character_set_type};
 
     #[test]
     fn fails_when_there_is_not_enough_cover_text() -> Result<(), Box<dyn Error>> {
@@ -162,6 +196,7 @@ mod test {
             pivot: Some(3),
             eluv: false,
             extended_line: true,
+            set: None,
         };
 
         let result = command.do_encode(cover_input.as_bytes(), data_input.as_slice());
@@ -180,10 +215,26 @@ mod test {
             pivot: Some(3),
             eluv: false,
             extended_line: true,
+            set: None,
         };
 
         let result = command.do_encode(cover_input.as_bytes(), data_input.as_slice());
         assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn get_character_set_type_returns_default_when_none_is_provided() -> Result<(), Box<dyn Error>> {
+        assert_eq!(get_character_set_type(&None), CharacterSetType::FullUnicodeSet);
+        Ok(())
+    }
+
+    #[test]
+    fn get_character_set_type_maps_sets_correctly() -> Result<(), Box<dyn Error>> {
+        assert_eq!(get_character_set_type(&Some(ELUVCharacterSet::Full)), CharacterSetType::FullUnicodeSet);
+        assert_eq!(get_character_set_type(&Some(ELUVCharacterSet::FourBit)), CharacterSetType::FourBitUnicodeSet);
+        assert_eq!(get_character_set_type(&Some(ELUVCharacterSet::ThreeBit)), CharacterSetType::ThreeBitUnicodeSet);
+        assert_eq!(get_character_set_type(&Some(ELUVCharacterSet::TwoBit)), CharacterSetType::TwoBitUnicodeSet);
         Ok(())
     }
 }
