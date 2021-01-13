@@ -103,4 +103,8 @@ impl Decoder<PivotByRawLineContext> for LineExtendMethod {
     }
 }
 
-impl Method<PivotByLineContext, PivotByRawLineContext> for LineExtendMethod {}
+impl Method<PivotByLineContext, PivotByRawLineContext> for LineExtendMethod {
+    fn method_name(&self) -> String {
+        "LineExtendMethod".to_string()
+    }
+}

@@ -41,18 +41,22 @@ impl Default for ExtendedLineMethod {
 impl_complex_encoder!(ExtendedLineMethod, PivotByLineContext);
 impl_complex_decoder!(ExtendedLineMethod, PivotByRawLineContext);
 
-impl Method<PivotByLineContext, PivotByRawLineContext> for ExtendedLineMethod {}
+impl Method<PivotByLineContext, PivotByRawLineContext> for ExtendedLineMethod {
+    fn method_name(&self) -> String {
+        format!(
+            "ExtendedLineMethod({},{},{})",
+            self.methods[0].method_name(),
+            self.methods[1].method_name(),
+            self.methods[2].method_name(),
+        )
+    }
+}
 
 #[allow(unused_imports)]
 mod test {
     use std::error::Error;
 
-    use crate::{
-        binary::BitIterator,
-        context::{PivotByLineContext, PivotByRawLineContext},
-        decoder::Decoder,
-        encoder::Encoder,
-    };
+    use crate::{binary::BitIterator, context::{PivotByLineContext, PivotByRawLineContext}, decoder::Decoder, encoder::Encoder, method::Method};
 
     use super::ExtendedLineMethod;
 
@@ -109,6 +113,15 @@ mod test {
         let secret_data = method.decode(&mut context, None)?;
 
         assert_eq!(&secret_data, &[0, 0]);
+        Ok(())
+    }
+
+    #[test]
+    fn default_method_name_is_correct() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            ExtendedLineMethod::default().method_name(),
+            "ExtendedLineMethod(RandomWhitespaceMethod,LineExtendMethod,TrailingWhitespaceMethod)"
+        );
         Ok(())
     }
 }

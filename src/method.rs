@@ -21,4 +21,5 @@ where
     E: Context,
     D: Context,
 {
+    fn method_name(&self) -> String;
 }

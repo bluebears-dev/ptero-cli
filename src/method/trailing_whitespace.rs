@@ -7,9 +7,14 @@
 
 use std::error::Error;
 
-use log::{trace};
+use log::trace;
 
-use crate::{binary::{Bit}, context::{Context, ContextError}, decoder::Decoder, encoder::{Capacity, Encoder, EncoderResult}};
+use crate::{
+    binary::Bit,
+    context::{Context, ContextError},
+    decoder::Decoder,
+    encoder::{Capacity, Encoder, EncoderResult},
+};
 
 /// Character used as the trailing whitespace in the method.
 pub const ASCII_WHITESPACE: char = ' ';
@@ -18,6 +23,7 @@ use super::Method;
 // Unit structure used to define the method.
 // Implements both [Encoder](crate::encoder::Encode) and [Decoder](crate::decoder::Decoder) traits.
 // Accepts any [Context](crate::context::Context).
+#[derive(Debug, PartialEq)]
 pub struct TrailingWhitespaceMethod;
 
 impl Default for TrailingWhitespaceMethod {
@@ -83,4 +89,7 @@ where
     E: Context,
     D: Context,
 {
+    fn method_name(&self) -> String {
+        "TrailingWhitespaceMethod".to_string()
+    }
 }

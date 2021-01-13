@@ -33,6 +33,7 @@ use super::Method;
 /// (where n is the binary logarithm of the set size).
 ///
 /// Accepts any [Context](crate::context::Context).
+#[derive(Debug, PartialEq)]
 pub struct TrailingUnicodeMethod {
     character_set: CharacterSetType,
 }
@@ -120,4 +121,7 @@ where
     E: Context,
     D: Context,
 {
+    fn method_name(&self) -> String {
+        "TrailingUnicodeMethod".to_string()
+    }
 }

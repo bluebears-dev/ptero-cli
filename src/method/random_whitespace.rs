@@ -18,6 +18,7 @@ use super::Method;
 /// Implements both [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits.
 ///
 /// Accepts any [Context](crate::context::Context).
+#[derive(Debug, PartialEq)]
 pub struct RandomWhitespaceMethod;
 
 impl Default for RandomWhitespaceMethod {
@@ -98,4 +99,7 @@ where
     E: Context,
     D: Context,
 {
+    fn method_name(&self) -> String {
+        "RandomWhitespaceMethod".to_string()
+    }
 }
