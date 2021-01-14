@@ -8,10 +8,7 @@ use crate::{
     context::PivotByLineContext,
     encoder::Encoder,
     method::{
-        complex::{
-            eluv::{ELUVMethod, ELUVMethodBuilder},
-            extended_line::ExtendedLineMethod,
-        },
+        complex::{eluv::ELUVMethodBuilder, extended_line::ExtendedLineMethodBuilder},
         trailing_unicode::character_sets::CharacterSetType,
     },
 };
@@ -138,7 +135,7 @@ impl EncodeSubCommand {
                     .build(),
             )
         } else {
-            Box::new(ExtendedLineMethod::default())
+            Box::new(ExtendedLineMethodBuilder::new().build())
         }
     }
 }
