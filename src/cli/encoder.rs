@@ -1,4 +1,10 @@
-use std::{error::Error, fs::File, io::Read, sync::mpsc::channel};
+use std::{
+    convert::{TryInto},
+    error::Error,
+    fs::File,
+    io::Read,
+    sync::mpsc::channel,
+};
 
 use clap::Clap;
 use log::{info, trace};
@@ -19,7 +25,7 @@ use super::{
 };
 
 #[derive(Clap, Debug, PartialEq)]
-pub(crate) enum ELUVCharacterSet {
+pub enum ELUVCharacterSet {
     FourBit,
     ThreeBit,
     TwoBit,
@@ -54,6 +60,7 @@ pub struct EncodeSubCommand {
     /// at the end of the line during encoding.
     ///
     /// It can encode 7 bits in one pass.
+    /// This method has 3 variant.
     #[clap(long, group = "method_args")]
     eluv: bool,
 
@@ -64,6 +71,12 @@ pub struct EncodeSubCommand {
     #[clap(long, arg_enum, requires = "eluv")]
     set: Option<ELUVCharacterSet>,
 
+    /// Variant of the method. See concrete method for possible values.
+    ///
+    /// Variant is a permutation of methods that can be used during encoding.
+    #[clap(long, default_value = "1")]
+    variant: u8,
+
     /// Use Extended Line method for encoding.
     ///
     /// The Extended Line method is a combination of three smaller encoders.
@@ -72,6 +85,7 @@ pub struct EncodeSubCommand {
     /// Trailing Whitespace - which puts whitespace at the end of the line during encoding.
     ///
     /// It can encode 3 bits in one pass. Relies purely on ASCII characters.
+    /// This method has 3 variant.
     #[clap(long = "eline", group = "method_args")]
     #[allow(dead_code)]
     extended_line: bool,
@@ -117,7 +131,8 @@ impl EncodeSubCommand {
         progress_bar.set_message("Encoding..");
         spawn_progress_thread(progress_bar.clone(), rx);
 
-        let method = self.get_method();
+        let method = self.get_method()?;
+        info!("Using method variant {}", self.variant);
         let mut context = PivotByLineContext::new(&cover_text, pivot);
         let stego_result = method.encode(&mut context, &mut data_iterator, Some(&tx));
 
@@ -127,20 +142,27 @@ impl EncodeSubCommand {
         Ok(stego_result?.as_bytes().into())
     }
 
-    pub(crate) fn get_method(&self) -> Box<dyn Encoder<PivotByLineContext>> {
-        if self.eluv {
+    pub(crate) fn get_method(
+        &self,
+    ) -> Result<Box<dyn Encoder<PivotByLineContext>>, Box<dyn Error>> {
+        Ok(if self.eluv {
             Box::new(
                 ELUVMethodBuilder::new()
                     .character_set(get_character_set_type(&self.set))
+                    .variant(self.variant.try_into()?)
                     .build(),
             )
         } else {
-            Box::new(ExtendedLineMethodBuilder::new().build())
-        }
+            Box::new(
+                ExtendedLineMethodBuilder::new()
+                    .variant(self.variant.try_into()?)
+                    .build(),
+            )
+        })
     }
 }
 
-pub(crate) fn get_character_set_type(set_option: &Option<ELUVCharacterSet>) -> CharacterSetType {
+pub fn get_character_set_type(set_option: &Option<ELUVCharacterSet>) -> CharacterSetType {
     if let Some(char_set) = set_option {
         match char_set {
             ELUVCharacterSet::FourBit => CharacterSetType::FourBitUnicodeSet,
@@ -200,6 +222,7 @@ mod test {
             eluv: false,
             extended_line: true,
             set: None,
+            variant: 1,
         };
 
         let result = command.do_encode(cover_input.as_bytes(), data_input.as_slice());
@@ -219,6 +242,7 @@ mod test {
             eluv: false,
             extended_line: true,
             set: None,
+            variant: 1,
         };
 
         let result = command.do_encode(cover_input.as_bytes(), data_input.as_slice());

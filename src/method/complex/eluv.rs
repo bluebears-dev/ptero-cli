@@ -28,9 +28,6 @@ pub enum ELUVMethodVariant {
     Variant1,
     Variant2,
     Variant3,
-    Variant4,
-    Variant5,
-    Variant6,
 }
 
 pub struct ELUVMethodBuilder {
@@ -59,11 +56,8 @@ impl ELUVMethodBuilder {
     fn select_methods(&self) -> Vec<ELUVSubmethod> {
         let indices = match self.variant {
             ELUVMethodVariant::Variant1 => &[0, 1, 2],
-            ELUVMethodVariant::Variant2 => &[0, 2, 1],
-            ELUVMethodVariant::Variant3 => &[1, 0, 2],
-            ELUVMethodVariant::Variant4 => &[1, 2, 0],
-            ELUVMethodVariant::Variant5 => &[2, 1, 0],
-            ELUVMethodVariant::Variant6 => &[2, 0, 1],
+            ELUVMethodVariant::Variant2 => &[1, 0, 2],
+            ELUVMethodVariant::Variant3 => &[1, 2, 0],
         };
 
         indices
@@ -208,35 +202,14 @@ mod test {
                 .variant(ELUVMethodVariant::Variant2)
                 .build()
                 .method_name(),
-            "ELUVMethod(RandomWhitespaceMethod,TrailingUnicodeMethod,LineExtendMethod)"
+            "ELUVMethod(LineExtendMethod,RandomWhitespaceMethod,TrailingUnicodeMethod)"
         );
         assert_eq!(
             ELUVMethodBuilder::new()
                 .variant(ELUVMethodVariant::Variant3)
                 .build()
                 .method_name(),
-            "ELUVMethod(LineExtendMethod,RandomWhitespaceMethod,TrailingUnicodeMethod)"
-        );
-        assert_eq!(
-            ELUVMethodBuilder::new()
-                .variant(ELUVMethodVariant::Variant4)
-                .build()
-                .method_name(),
             "ELUVMethod(LineExtendMethod,TrailingUnicodeMethod,RandomWhitespaceMethod)"
-        );
-        assert_eq!(
-            ELUVMethodBuilder::new()
-                .variant(ELUVMethodVariant::Variant5)
-                .build()
-                .method_name(),
-            "ELUVMethod(TrailingUnicodeMethod,LineExtendMethod,RandomWhitespaceMethod)"
-        );
-        assert_eq!(
-            ELUVMethodBuilder::new()
-                .variant(ELUVMethodVariant::Variant6)
-                .build()
-                .method_name(),
-            "ELUVMethod(TrailingUnicodeMethod,RandomWhitespaceMethod,LineExtendMethod)"
         );
         Ok(())
     }

@@ -28,15 +28,11 @@ impl Default for ExtendedLineMethod {
     }
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum ExtendedLineMethodVariant {
     Variant1,
     Variant2,
     Variant3,
-    Variant4,
-    Variant5,
-    Variant6,
 }
 
 pub struct ExtendedLineMethodBuilder {
@@ -58,11 +54,8 @@ impl ExtendedLineMethodBuilder {
     fn select_methods(&self) -> Vec<ExtendedLineSubmethod> {
         let indices = match self.variant {
             ExtendedLineMethodVariant::Variant1 => &[0, 1, 2],
-            ExtendedLineMethodVariant::Variant2 => &[0, 2, 1],
-            ExtendedLineMethodVariant::Variant3 => &[1, 0, 2],
-            ExtendedLineMethodVariant::Variant4 => &[1, 2, 0],
-            ExtendedLineMethodVariant::Variant5 => &[2, 1, 0],
-            ExtendedLineMethodVariant::Variant6 => &[2, 0, 1],
+            ExtendedLineMethodVariant::Variant2 => &[1, 0, 2],
+            ExtendedLineMethodVariant::Variant3 => &[1, 2, 0],
         };
 
         indices
@@ -85,7 +78,6 @@ impl ExtendedLineMethodBuilder {
     }
 }
 
-
 impl_complex_encoder!(ExtendedLineMethod, PivotByLineContext);
 impl_complex_decoder!(ExtendedLineMethod, PivotByRawLineContext);
 
@@ -104,7 +96,13 @@ impl Method<PivotByLineContext, PivotByRawLineContext> for ExtendedLineMethod {
 mod test {
     use std::error::Error;
 
-    use crate::{binary::BitIterator, context::{PivotByLineContext, PivotByRawLineContext}, decoder::Decoder, encoder::Encoder, method::Method};
+    use crate::{
+        binary::BitIterator,
+        context::{PivotByLineContext, PivotByRawLineContext},
+        decoder::Decoder,
+        encoder::Encoder,
+        method::Method,
+    };
 
     use super::{ExtendedLineMethod, ExtendedLineMethodBuilder, ExtendedLineMethodVariant};
 
@@ -187,35 +185,14 @@ mod test {
                 .variant(ExtendedLineMethodVariant::Variant2)
                 .build()
                 .method_name(),
-            "ExtendedLineMethod(RandomWhitespaceMethod,TrailingWhitespaceMethod,LineExtendMethod)"
+            "ExtendedLineMethod(LineExtendMethod,RandomWhitespaceMethod,TrailingWhitespaceMethod)"
         );
         assert_eq!(
             ExtendedLineMethodBuilder::new()
                 .variant(ExtendedLineMethodVariant::Variant3)
                 .build()
                 .method_name(),
-            "ExtendedLineMethod(LineExtendMethod,RandomWhitespaceMethod,TrailingWhitespaceMethod)"
-        );
-        assert_eq!(
-            ExtendedLineMethodBuilder::new()
-                .variant(ExtendedLineMethodVariant::Variant4)
-                .build()
-                .method_name(),
             "ExtendedLineMethod(LineExtendMethod,TrailingWhitespaceMethod,RandomWhitespaceMethod)"
-        );
-        assert_eq!(
-            ExtendedLineMethodBuilder::new()
-                .variant(ExtendedLineMethodVariant::Variant5)
-                .build()
-                .method_name(),
-            "ExtendedLineMethod(TrailingWhitespaceMethod,LineExtendMethod,RandomWhitespaceMethod)"
-        );
-        assert_eq!(
-            ExtendedLineMethodBuilder::new()
-                .variant(ExtendedLineMethodVariant::Variant6)
-                .build()
-                .method_name(),
-            "ExtendedLineMethod(TrailingWhitespaceMethod,RandomWhitespaceMethod,LineExtendMethod)"
         );
         Ok(())
     }

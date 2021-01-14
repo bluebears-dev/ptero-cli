@@ -15,6 +15,8 @@ pub mod trailing_unicode;
 /// Module containing complex methods. Complex usually means combination of several other methods.
 pub mod complex;
 
+pub mod variant;
+
 /// Combination of [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits - each method should be able to encode and decode.
 pub trait Method<E, D>: Encoder<E> + Decoder<D>
 where
