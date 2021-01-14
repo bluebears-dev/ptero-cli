@@ -1,10 +1,4 @@
-use std::{
-    convert::{TryInto},
-    error::Error,
-    fs::File,
-    io::Read,
-    sync::mpsc::channel,
-};
+use std::{convert::TryInto, error::Error, fs::File, io::Read, sync::mpsc::channel};
 
 use clap::Clap;
 use log::{info, trace};
@@ -91,6 +85,18 @@ pub struct EncodeSubCommand {
     extended_line: bool,
 }
 
+pub fn validate_pivot_smaller_than_text(
+    pivot: usize,
+    cover_text: &str,
+) -> Result<(), Box<dyn Error>> {
+    let text_length = cover_text.len();
+
+    if pivot > text_length {
+        return Err("Pivot is greater than the cover text length.".into());
+    }
+    Ok(())
+}
+
 impl EncodeSubCommand {
     pub fn run(&self) -> Result<Vec<u8>, Box<dyn Error>> {
         let cover_file_input = File::open(&self.cover)?;
@@ -116,6 +122,8 @@ impl EncodeSubCommand {
             self.pivot,
             determine_pivot_size(cover_text.split_whitespace()),
         )?;
+
+        validate_pivot_smaller_than_text(pivot, &cover_text)?;
 
         let capacity_msg = format!(
             "Required cover text capacity: {}",
@@ -239,6 +247,26 @@ mod test {
             cover: "stub".into(),
             data: "stub".into(),
             pivot: Some(3),
+            eluv: false,
+            extended_line: true,
+            set: None,
+            variant: 1,
+        };
+
+        let result = command.do_encode(cover_input.as_bytes(), data_input.as_slice());
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn fails_when_pivot_is_too_large() -> Result<(), Box<dyn Error>> {
+        let cover_input = "aaaaa";
+        let data_input: Vec<u8> = vec![0b11111111];
+
+        let command = EncodeSubCommand {
+            cover: "stub".into(),
+            data: "stub".into(),
+            pivot: Some(6),
             eluv: false,
             extended_line: true,
             set: None,

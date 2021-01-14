@@ -9,11 +9,7 @@ use crate::{
     method::complex::{eluv::ELUVMethod, extended_line::ExtendedLineMethod},
 };
 
-use super::{
-    encoder::determine_pivot_size,
-    progress::{new_progress_bar, spawn_progress_thread, ProgressStatus},
-    writer::Writer,
-};
+use super::{encoder::{determine_pivot_size, validate_pivot_smaller_than_text}, progress::{new_progress_bar, spawn_progress_thread, ProgressStatus}, writer::Writer};
 
 /// Calculate the minimal capacity for the cover text and given pivot
 #[derive(Clap)]
@@ -27,10 +23,14 @@ pub struct GetCapacityCommand {
     pivot: usize,
 
     /// Use ELUV method for encoding.
+    ///
+    /// Does not support different sets or variants, currently.
     #[clap(long, group = "method_args")]
     eluv: bool,
 
     /// Use Extended Line method for encoding.
+    ///
+    /// Does not support different variants, currently.
     #[clap(long = "eline", group = "method_args")]
     #[allow(dead_code)]
     extended_line: bool,
@@ -54,17 +54,12 @@ impl GetCapacityCommand {
         let mut text_fragment_count = 0;
 
         let max_word_length = determine_pivot_size(cover_text.split_whitespace());
-        let text_length = cover_text
-            .split_whitespace()
-            .map(|string| string.chars())
-            .flatten()
-            .count();
+        validate_pivot_smaller_than_text(self.pivot, &cover_text)?;
+
         debug!("Longest word in the cover text is {}", max_word_length);
 
         if max_word_length > self.pivot {
             Writer::warn("This pivot might not guarantee the secret data will be encodable!");
-        } else if self.pivot >= text_length {
-            return Err("Pivot is greater than the cover text length.".into());
         }
 
         let progress_bar = new_progress_bar(cover_text.len() as u64);
@@ -131,6 +126,23 @@ mod test {
 
         let result = command.get_cover_text_capacity(cover_input.as_bytes());
         assert_eq!(result.ok(), Some(6 as u32));
+        Ok(())
+    }
+
+
+    #[test]
+    fn fails_when_pivot_is_too_large() -> Result<(), Box<dyn Error>> {
+        let stego_input = "aaaaa";
+
+        let command = GetCapacityCommand {
+            cover: "stub".into(),
+            pivot: 6,
+            eluv: false,
+            extended_line: true,
+        };
+
+        let result = command.get_cover_text_capacity(stego_input.as_bytes());
+        assert!(result.is_err());
         Ok(())
     }
 }

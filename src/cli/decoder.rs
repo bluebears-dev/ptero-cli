@@ -9,10 +9,7 @@ use crate::{
     method::complex::{eluv::ELUVMethodBuilder, extended_line::ExtendedLineMethodBuilder},
 };
 
-use super::{
-    encoder::{get_character_set_type, ELUVCharacterSet},
-    progress::{new_progress_bar, spawn_progress_thread, ProgressStatus},
-};
+use super::{encoder::{ELUVCharacterSet, get_character_set_type, validate_pivot_smaller_than_text}, progress::{new_progress_bar, spawn_progress_thread, ProgressStatus}};
 
 /// Decode secret from the stegotext
 #[derive(Clap)]
@@ -82,6 +79,9 @@ impl DecodeSubCommand {
         let mut stego_text = String::new();
 
         stego_input.read_to_string(&mut stego_text)?;
+
+        validate_pivot_smaller_than_text(self.pivot, &stego_text)?;
+
         let decoder = self.get_method()?;
         info!("Using method variant {}", self.variant);
         let mut context = PivotByRawLineContext::new(stego_text.as_str(), self.pivot);
@@ -140,6 +140,24 @@ mod test {
 
         let result = command.do_decode(stego_input.as_bytes());
         assert_eq!(result.ok(), Some(vec![0]));
+        Ok(())
+    }
+
+    #[test]
+    fn fails_when_pivot_is_too_large() -> Result<(), Box<dyn Error>> {
+        let stego_input = "aaaaa";
+
+        let command = DecodeSubCommand {
+            text: "stub".into(),
+            pivot: 6,
+            eluv: false,
+            extended_line: true,
+            set: None,
+            variant: 1,
+        };
+
+        let result = command.do_decode(stego_input.as_bytes());
+        assert!(result.is_err());
         Ok(())
     }
 }
