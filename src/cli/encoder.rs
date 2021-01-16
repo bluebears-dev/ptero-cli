@@ -24,6 +24,7 @@ pub enum ELUVCharacterSet {
     ThreeBit,
     TwoBit,
     Full,
+    Twitter,
 }
 
 /// Encode the secret into given cover text
@@ -177,6 +178,7 @@ pub fn get_character_set_type(set_option: &Option<ELUVCharacterSet>) -> Characte
             ELUVCharacterSet::ThreeBit => CharacterSetType::ThreeBitUnicodeSet,
             ELUVCharacterSet::TwoBit => CharacterSetType::TwoBitUnicodeSet,
             ELUVCharacterSet::Full => CharacterSetType::FullUnicodeSet,
+            ELUVCharacterSet::Twitter => CharacterSetType::TwitterUnicodeSet,
         }
     } else {
         CharacterSetType::FullUnicodeSet

@@ -103,6 +103,12 @@ pub const FULL_UNICODE_CHARACTER_SET: [char; 31] = [
     '\u{2063}', '\u{2064}', '\u{2066}', '\u{2068}', '\u{2069}', '\u{3000}', '\u{FEFF}',
 ];
 
+/// Set of characters used to encode messages on Twitter
+pub const TWITTER_UNICODE_CHARACTER_SET: [char; 15] = [
+    '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
+    '\u{2007}', '\u{2009}', '\u{200A}', '\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}',
+];
+
 /// Set providing pre-defined characters for 4-bit encoding capacity.
 pub const FOUR_BIT_CHARACTER_SET: [char; 15] = [
     '\u{0020}', '\u{2000}', '\u{2001}', '\u{2002}', '\u{2003}', '\u{2004}', '\u{2005}', '\u{2006}',
@@ -123,7 +129,8 @@ pub enum CharacterSetType {
     FullUnicodeSet,
     FourBitUnicodeSet,
     ThreeBitUnicodeSet,
-    TwoBitUnicodeSet
+    TwoBitUnicodeSet,
+    TwitterUnicodeSet,
 }
 
 impl GetCharacterSet for CharacterSetType {
@@ -135,6 +142,7 @@ impl GetCharacterSet for CharacterSetType {
     /// use ptero::method::trailing_unicode::character_sets::{
     ///    CharacterSetType, GetCharacterSet, FULL_UNICODE_CHARACTER_SET,
     ///    THREE_BIT_CHARACTER_SET, TWO_BIT_CHARACTER_SET, FOUR_BIT_CHARACTER_SET,
+    ///    TWITTER_UNICODE_CHARACTER_SET
     /// };
     ///
     ///
@@ -142,6 +150,7 @@ impl GetCharacterSet for CharacterSetType {
     /// assert_eq!(CharacterSetType::FourBitUnicodeSet.get_set(), &FOUR_BIT_CHARACTER_SET);
     /// assert_eq!(CharacterSetType::ThreeBitUnicodeSet.get_set(), &THREE_BIT_CHARACTER_SET);
     /// assert_eq!(CharacterSetType::TwoBitUnicodeSet.get_set(), &TWO_BIT_CHARACTER_SET);
+    /// assert_eq!(CharacterSetType::TwitterUnicodeSet.get_set(), &TWITTER_UNICODE_CHARACTER_SET);
     /// ```
     fn get_set(&self) -> &[char] {
         match *self {
@@ -149,6 +158,7 @@ impl GetCharacterSet for CharacterSetType {
             CharacterSetType::FourBitUnicodeSet => &FOUR_BIT_CHARACTER_SET,
             CharacterSetType::ThreeBitUnicodeSet => &THREE_BIT_CHARACTER_SET,
             CharacterSetType::TwoBitUnicodeSet => &TWO_BIT_CHARACTER_SET,
+            CharacterSetType::TwitterUnicodeSet => &TWITTER_UNICODE_CHARACTER_SET,
         }
     }
 }
