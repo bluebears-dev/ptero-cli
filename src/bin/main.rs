@@ -1,6 +1,6 @@
 use std::{error::Error, fs::File, io::Write, process};
 
-use clap::{ArgGroup, Clap};
+use clap::{ArgGroup, Clap, crate_version};
 use colored::Colorize;
 
 use ptero::{
@@ -27,7 +27,7 @@ const APP_NAME: &str = "Ptero CLI";
 /// The CLI text steganography tool for social media.
 #[derive(Clap)]
 #[clap(
-version = "0.2",
+version = crate_version!(),
 author = "Paweł G. <dev.baymax42@gmail.com>",
 name = format ! ("{}{}", BANNER, APP_NAME),
 group = ArgGroup::new("output_args").required(false),
