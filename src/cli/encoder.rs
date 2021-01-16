@@ -43,7 +43,7 @@ pub struct EncodeSubCommand {
     /// Pivot i.e. line length used for extended line algorithm.
     ///
     /// If omitted, program will determine minimum pivot that can be used.
-    #[clap(long)]
+    #[clap(short, long)]
     pivot: Option<usize>,
 
     /// Use ELUV method for encoding.
