@@ -11,11 +11,13 @@ However, it also includes an extended implementation of specified algorithm, cal
 
 The tool was tested in *Facebook's Messenger* and *Twitter* - both methods were working correctly. You can also read more about the method [here](https://github.com/baymax42/ptero-cli/wiki/Methods).
 
----
 
 <!-- TOC -->
-- [Ptero CLI](#ptero-cli)
-  - [Development](#development)
+- [Ptero CLI !GitHub tag (latest SemVer)](#ptero-cli-)
+  - [Installation](#installation)
+    - [Pre-compiled binaries](#pre-compiled-binaries)
+    - [Crates.io](#cratesio)
+  - [Development ![Coverage Status](https://coveralls.io/github/baymax42/ptero-cli?branch=main) ![GitHub branch checks state](https://img.shields.io/github/checks-status/baymax42/ptero-cli/main?label=status) ![GitHub](https://img.shields.io/github/license/baymax42/ptero-cli)](#development---)
     - [Editor](#editor)
     - [Build](#build)
     - [Tests and coverage](#tests-and-coverage)
@@ -25,7 +27,27 @@ The tool was tested in *Facebook's Messenger* and *Twitter* - both methods were 
     - [Bitrate measurement](#bitrate-measurement)
 <!-- TOC -->
 
-## Development   [![Coverage Status](https://coveralls.io/repos/github/baymax42/ptero-cli/badge.svg?branch=main)](https://coveralls.io/github/baymax42/ptero-cli?branch=main) ![GitHub branch checks state](https://img.shields.io/github/checks-status/baymax42/ptero-cli/main?label=status) ![GitHub](https://img.shields.io/github/license/baymax42/ptero-cli)
+## Installation
+The `ptero-cli` is multiplatform program - it works on Linux, Windows and macOS (tested on Catalina, currently there are no pre-built binaries). If you want to try out the `ptero-cli` you have two options:
+### Pre-compiled binaries
+One is to download pre-compiled binaries from Github [release section](https://github.com/baymax42/ptero-cli/releases). 
+Currently, there are only two versions AMD64 for Linux distributions and Windows. 
+
+If for any reason you are not able to use them you can try out the second option.
+
+### Crates.io
+The second option is to install the `ptero-cli` using `cargo`. This will build the binary according to your OS and architecture. Simply run:
+```shell script
+cargo install ptero-cli
+```
+
+This will install the newest version from Crates.io. Of course, you can always built it by yourself by cloning this repository and running:
+```shell script
+cargo build --release
+```
+The built binary will be available at `target/release/`.
+
+## Development [![Coverage Status](https://coveralls.io/repos/github/baymax42/ptero-cli/badge.svg?branch=main)](https://coveralls.io/github/baymax42/ptero-cli?branch=main) ![GitHub branch checks state](https://img.shields.io/github/checks-status/baymax42/ptero-cli/main?label=status) ![GitHub](https://img.shields.io/github/license/baymax42/ptero-cli)
 
 Rust is the main language used in this repository. By default, you have to install standard Rust toolchain to start working.
 See [official installation page](https://www.rust-lang.org/tools/install) for more info.
@@ -57,9 +79,9 @@ To run all the tests:
 cargo test
 ```
 
-Coverage checking is done through separate package `cargo-tarpaulin` - make sure to install it if you want to. To run it locally just:
+Coverage checking is done through separate package `cargo-tarpaulin` - make sure to install it if you want to. To run it locally just (more or less the same command is run on Github Actions):
 ```shell
-cargo tarpaulin -v
+cargo tarpaulin -v --exclude-files src/log.rs --force-clean
 ```
 
 ### Lint
