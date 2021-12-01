@@ -22,6 +22,7 @@ pub mod method;
 
 /// Logger utilities.
 pub mod log;
+pub mod cover;
 
 pub mod cli {
     pub mod capacity;
@@ -30,3 +31,6 @@ pub mod cli {
     pub mod writer;
     pub mod progress;
 }
+
+#[macro_use]
+extern crate derive_builder;
