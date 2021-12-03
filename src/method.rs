@@ -5,7 +5,6 @@ use rand::rngs::StdRng;
 use crate::{context::Context, decoder::Decoder, encoder::Encoder};
 use crate::binary::Bit;
 use crate::encoder::EncoderResult;
-use crate::verify::Verify;
 
 /// Method which adds extra ASCII space when encoding bit
 pub mod random_whitespace;
@@ -36,7 +35,7 @@ pub trait Method<E, D>: Encoder<E> + Decoder<D>
     fn method_name(&self) -> String;
 }
 
-pub trait SteganographyMethod<Cover, Err>: Verify<Cover, Err> {
+pub trait SteganographyMethod<Cover, Err> {
     type Output;
     type Input;
 
