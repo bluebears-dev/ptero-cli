@@ -20,6 +20,8 @@ pub mod context;
 /// Module containing all the available methods for text steganography. 
 pub mod method;
 
+pub mod verify;
+
 /// Logger utilities.
 pub mod log;
 
