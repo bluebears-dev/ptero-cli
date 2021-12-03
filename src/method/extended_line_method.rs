@@ -1,34 +1,41 @@
 use crate::binary::Bit;
-use crate::encoder::{EncoderResult, EncodingError};
+use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
 use crate::method::SteganographyMethod;
-use log::{error, trace};
+use log::trace;
 use rand::{Rng, RngCore};
 use snafu::Snafu;
+use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::sync::mpsc::Sender;
-use unicode_segmentation::{UWordBounds, UnicodeSegmentation};
+use unicode_segmentation::UnicodeSegmentation;
 
 const ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
-
 const DEFAULT_PIVOT: usize = 15;
 
 #[derive(Debug)]
-pub enum MethodActions {
+pub(crate) enum MethodActions {
     LineExtend,
     RandomASCIIWhitespace,
     TrailingASCIIWhitespace,
 }
 
+/// Extended Line method variant.
+/// It describes which variation of internally used algorithms you want to use.
 #[derive(Debug)]
 pub enum Variant {
+    /// Line Extension, Random Whitespace, Trailing Whitespace
     V1,
+    /// Line Extension, Trailing Whitespace, Random Whitespace
     V2,
+    /// Random Whitespace, Line Extension, Trailing Whitespace
     V3,
 }
 
+/// Builder for [`ExtendedLineMethod`] algorithm.
+/// It enables you to configure the method to your use case.
 pub struct ExtendedLineMethodBuilder<'a> {
     pivot: usize,
     variant: Variant,
@@ -64,6 +71,7 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
         self
     }
 
+    /// Set pivot
     pub fn with_pivot(mut self, pivot: usize) -> Self {
         self.pivot = pivot;
         self
@@ -81,9 +89,20 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
     /// use ptero::method::extended_line_method::{ExtendedLineMethod, Variant};
     /// use ptero::method::config::MethodProgressStatus;
     ///
+    /// let method = ExtendedLineMethodBuilder::default().build();
+    /// ```
+    ///
+    /// Override defaults:
+    ///
+    /// ```
+    /// use std::sync::mpsc::channel;
+    /// use rand::rngs::mock::StepRng;
+    /// use ptero::method::extended_line_method::{ExtendedLineMethod, Variant};
+    /// use ptero::method::config::MethodProgressStatus;
+    ///
     /// let (tx, rx) = channel::<MethodProgressStatus>();
     ///
-    /// let method = ExtendedLineMethod::builder()
+    /// let method = ExtendedLineMethodBuilder::default()
     ///     .with_rng(Box::new(StepRng::new(0, 1)))
     ///     .with_variant(Variant::V2)
     ///     .with_pivot(20)
@@ -123,62 +142,105 @@ fn graphemes_length(text: &str) -> usize {
     text.graphemes(true).count()
 }
 
+/// The main structure describing internal state for the Extended Line method.
 pub struct ExtendedLineMethod<'a> {
     pivot: usize,
     variant: Variant,
     config: CommonMethodConfig<'a>,
 }
 
+/// Describes possible errors while concealing data using [`ExtendedLineMethod`].
 #[derive(Debug, PartialEq, Snafu)]
-pub enum MethodError {
-    #[snafu(display("Pivot {} is smaller then the longest word in cover: {}", pivot, word))]
+pub enum ConcealError {
+    /// Used pivot was not suitable for selected cover text.
+    /// Cover text has words that are longer the pivot and the method cannot construct a feasible line.
+    #[snafu(display(
+        "Pivot '{}' is smaller then the longest word in cover: '{}'",
+        pivot,
+        word
+    ))]
     PivotTooSmall { word: String, pivot: usize },
-    #[snafu(display("Cover too small - '{}' bytes left unprocessed", remaining_data_size))]
-    CoverTextTooSmall { remaining_data_size: usize },
-    #[snafu(display("Cannot extend line to be longer than {}", pivot))]
-    CannotExtendLineAbovePivotLength {
-        reason: PivotExtensionErrorReason,
+    /// Used cover text can't hide selected amount of data.
+    /// Can happen at various stages of concealing.
+    #[snafu(display(
+        "{}. '{}' bytes left unprocessed while using '{}' as a pivot",
+        reason,
+        remaining_data_size,
+        pivot
+    ))]
+    CoverTextTooSmall {
+        reason: CoverTooSmallErrorReason,
+        remaining_data_size: usize,
         pivot: usize,
     },
 }
 
 #[cfg(not(tarpaulin_include))]
-impl MethodError {
-    fn pivot_too_small(word: String, pivot: usize) -> MethodError {
-        MethodError::PivotTooSmall { word, pivot }
+impl ConcealError {
+    fn pivot_too_small(word: String, pivot: usize) -> ConcealError {
+        ConcealError::PivotTooSmall { word, pivot }
     }
 
-    fn cover_text_too_small(remaining_data_size: usize) -> MethodError {
-        MethodError::CoverTextTooSmall {
+    fn no_cover_words_left(remaining_data_size: usize, pivot: usize) -> ConcealError {
+        ConcealError::CoverTextTooSmall {
+            reason: CoverTooSmallErrorReason::NoCoverWordsLeft,
             remaining_data_size,
-        }
-    }
-
-    fn no_cover_words(pivot: usize) -> MethodError {
-        MethodError::CannotExtendLineAbovePivotLength {
-            reason: PivotExtensionErrorReason::NoCoverWords,
             pivot,
         }
     }
 
-    fn line_too_short(pivot: usize) -> MethodError {
-        MethodError::CannotExtendLineAbovePivotLength {
-            reason: PivotExtensionErrorReason::LineTooShort,
+    fn line_too_short(remaining_data_size: usize, pivot: usize) -> ConcealError {
+        ConcealError::CoverTextTooSmall {
+            reason: CoverTooSmallErrorReason::ConstructedTooShortLine,
+            remaining_data_size,
             pivot,
         }
     }
 }
 
+/// Describes the [`MethodError::CoverTextTooSmall`] error with more context.
 #[derive(Debug, PartialEq)]
-pub enum PivotExtensionErrorReason {
-    NoCoverWords,
-    LineTooShort,
+pub enum CoverTooSmallErrorReason {
+    /// It can occur during line extension or while constructing a line but got an empty one.
+    NoCoverWordsLeft,
+    /// Can occur when the last line constructed from cover emptied the cover, but method has to extend the line to hide a bit.
+    ConstructedTooShortLine,
 }
 
-type Result<Success> = std::result::Result<Success, MethodError>;
-type VerificationResult = std::result::Result<(), MethodError>;
+#[cfg(not(tarpaulin_include))]
+impl Display for CoverTooSmallErrorReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CoverTooSmallErrorReason::NoCoverWordsLeft => {
+                write!(f, "No cover words left, cannot construct a line.")
+            }
+            CoverTooSmallErrorReason::ConstructedTooShortLine => {
+                write!(
+                    f,
+                    "Line constructed is too short to extend it above pivot length"
+                )
+            }
+        }
+    }
+}
+
+type Result<Success> = std::result::Result<Success, ConcealError>;
+type VerificationResult = std::result::Result<(), ConcealError>;
 
 impl<'a> ExtendedLineMethod<'a> {
+    /// Returns a builder for [`ExtendedLineMethod`] algorithm.
+    ///
+    /// # Examples
+    ///
+    /// Basic usage:
+    ///
+    /// ```
+    /// use ptero::method::extended_line_method::ExtendedLineMethod;
+    ///
+    /// let method = ExtendedLineMethod::builder()
+    ///     .with_pivot(20)
+    ///     .build();
+    /// ```
     pub fn builder() -> ExtendedLineMethodBuilder<'a> {
         ExtendedLineMethodBuilder::default()
     }
@@ -191,7 +253,7 @@ impl<'a> ExtendedLineMethod<'a> {
 
         if !words_longer_than_pivot.is_empty() {
             let word = words_longer_than_pivot[0];
-            Err(MethodError::pivot_too_small(word.to_string(), self.pivot))
+            Err(ConcealError::pivot_too_small(word.to_string(), self.pivot))
         } else {
             Ok(())
         }
@@ -211,7 +273,10 @@ impl<'a> ExtendedLineMethod<'a> {
 
         if pivot_line.is_empty() {
             let remaining_data_size = data.count();
-            return Err(MethodError::cover_text_too_small(remaining_data_size));
+            return Err(ConcealError::no_cover_words_left(
+                remaining_data_size,
+                self.pivot,
+            ));
         }
 
         for action in get_variant_methods(&self.variant) {
@@ -248,16 +313,21 @@ impl<'a> ExtendedLineMethod<'a> {
     {
         Ok(match data.next() {
             Some(Bit(1)) => {
-                let next_word = word_iter
-                    .next()
-                    .ok_or_else(|| MethodError::no_cover_words(self.pivot))?;
+                let next_word = word_iter.next().ok_or_else(|| {
+                    let remaining_data_size = data.count();
+                    ConcealError::no_cover_words_left(remaining_data_size, self.pivot)
+                })?;
 
-                if pivot_line_length
+                let extended_line_length = pivot_line_length
                     + graphemes_length(next_word)
-                    + graphemes_length(ASCII_DELIMITER)
-                    <= self.pivot
-                {
-                    return Err(MethodError::line_too_short(self.pivot));
+                    + graphemes_length(ASCII_DELIMITER);
+
+                if extended_line_length <= self.pivot {
+                    let remaining_data_size = data.count();
+                    return Err(ConcealError::line_too_short(
+                        remaining_data_size,
+                        self.pivot,
+                    ));
                 }
 
                 println!("Extending line with '{}'", &next_word);
@@ -368,7 +438,7 @@ impl<'a> ExtendedLineMethod<'a> {
     }
 }
 
-impl<'a> SteganographyMethod<&'a str, MethodError> for ExtendedLineMethod<'a> {
+impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
     type Output = String;
     type Input = &'a mut dyn Iterator<Item = Bit>;
 
@@ -410,7 +480,7 @@ impl<'a> SteganographyMethod<&'a str, MethodError> for ExtendedLineMethod<'a> {
 mod test {
     use crate::binary::BitIterator;
     use crate::method::extended_line_method::Variant;
-    use crate::method::extended_line_method::{ExtendedLineMethod, MethodError};
+    use crate::method::extended_line_method::{ConcealError, ExtendedLineMethod};
     use crate::method::SteganographyMethod;
     use rand::rngs::mock::StepRng;
     use rand::Rng;
@@ -574,7 +644,7 @@ mod test {
 
         assert_eq!(
             stego_text,
-            Err(MethodError::pivot_too_small("little".to_string(), 2))
+            Err(ConcealError::pivot_too_small("little".to_string(), 2))
         );
         Ok(())
     }
@@ -587,7 +657,7 @@ mod test {
 
         let stego_text = method.try_conceal(TINY_TEXT, &mut data_iterator);
 
-        assert_eq!(stego_text, Err(MethodError::cover_text_too_small(5)));
+        assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(5, 5)));
         Ok(())
     }
 
@@ -599,7 +669,7 @@ mod test {
 
         let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_iterator);
 
-        assert_eq!(stego_text, Err(MethodError::cover_text_too_small(8)));
+        assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(8, 5)));
         Ok(())
     }
 }
