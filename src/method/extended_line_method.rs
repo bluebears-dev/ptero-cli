@@ -1,14 +1,14 @@
-use std::iter::Peekable;
-use std::ops::{Deref, DerefMut};
-use std::sync::mpsc::Sender;
-use log::{error, trace};
-use rand::{Rng, RngCore};
-use unicode_segmentation::{UnicodeSegmentation, UWordBounds};
-use snafu::Snafu;
 use crate::binary::Bit;
 use crate::encoder::{EncoderResult, EncodingError};
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
 use crate::method::SteganographyMethod;
+use log::{error, trace};
+use rand::{Rng, RngCore};
+use snafu::Snafu;
+use std::iter::Peekable;
+use std::ops::{Deref, DerefMut};
+use std::sync::mpsc::Sender;
+use unicode_segmentation::{UWordBounds, UnicodeSegmentation};
 
 const ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
@@ -101,9 +101,21 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
 
 pub(crate) fn get_variant_methods(variant: &Variant) -> &'static [MethodActions; 3] {
     match variant {
-        Variant::V1 => &[MethodActions::LineExtend, MethodActions::RandomASCIIWhitespace, MethodActions::TrailingASCIIWhitespace],
-        Variant::V2 => &[MethodActions::LineExtend, MethodActions::TrailingASCIIWhitespace, MethodActions::RandomASCIIWhitespace],
-        Variant::V3 => &[MethodActions::RandomASCIIWhitespace, MethodActions::LineExtend, MethodActions::TrailingASCIIWhitespace]
+        Variant::V1 => &[
+            MethodActions::LineExtend,
+            MethodActions::RandomASCIIWhitespace,
+            MethodActions::TrailingASCIIWhitespace,
+        ],
+        Variant::V2 => &[
+            MethodActions::LineExtend,
+            MethodActions::TrailingASCIIWhitespace,
+            MethodActions::RandomASCIIWhitespace,
+        ],
+        Variant::V3 => &[
+            MethodActions::RandomASCIIWhitespace,
+            MethodActions::LineExtend,
+            MethodActions::TrailingASCIIWhitespace,
+        ],
     }
 }
 
@@ -120,14 +132,9 @@ pub struct ExtendedLineMethod<'a> {
 #[derive(Debug, PartialEq, Snafu)]
 pub enum MethodError {
     #[snafu(display("Pivot {} is smaller then the longest word in cover: {}", pivot, word))]
-    PivotTooSmall {
-        word: String,
-        pivot: usize,
-    },
+    PivotTooSmall { word: String, pivot: usize },
     #[snafu(display("Cover too small - '{}' bytes left unprocessed", remaining_data_size))]
-    CoverTextTooSmall {
-        remaining_data_size: usize
-    },
+    CoverTextTooSmall { remaining_data_size: usize },
     #[snafu(display("Cannot extend line to be longer than {}", pivot))]
     CannotExtendLineAbovePivotLength {
         reason: PivotExtensionErrorReason,
@@ -138,15 +145,12 @@ pub enum MethodError {
 #[cfg(not(tarpaulin_include))]
 impl MethodError {
     fn pivot_too_small(word: String, pivot: usize) -> MethodError {
-        MethodError::PivotTooSmall {
-            word,
-            pivot,
-        }
+        MethodError::PivotTooSmall { word, pivot }
     }
 
     fn cover_text_too_small(remaining_data_size: usize) -> MethodError {
         MethodError::CoverTextTooSmall {
-            remaining_data_size
+            remaining_data_size,
         }
     }
 
@@ -180,7 +184,8 @@ impl<'a> ExtendedLineMethod<'a> {
     }
 
     fn verify_pivot(&self, cover: &str) -> VerificationResult {
-        let words_longer_than_pivot = cover.split_whitespace()
+        let words_longer_than_pivot = cover
+            .split_whitespace()
             .filter(|word| word.len() > self.pivot)
             .collect::<Vec<&str>>();
 
@@ -195,10 +200,11 @@ impl<'a> ExtendedLineMethod<'a> {
     fn partial_conceal<'b, I>(
         &mut self,
         word_iterator: &mut Peekable<I>,
-        data: &mut dyn Iterator<Item=Bit>,
+        data: &mut dyn Iterator<Item = Bit>,
         result: &mut String,
     ) -> Result<EncoderResult>
-        where I: Iterator<Item=&'b str>
+    where
+        I: Iterator<Item = &'b str>,
     {
         let pivot_line = self.construct_pivot_line(word_iterator);
         result.push_str(&pivot_line);
@@ -210,9 +216,12 @@ impl<'a> ExtendedLineMethod<'a> {
 
         for action in get_variant_methods(&self.variant) {
             let method_result = match action {
-                MethodActions::LineExtend => {
-                    self.conceal_in_extend_line(graphemes_length(&pivot_line), word_iterator, data, result)
-                }
+                MethodActions::LineExtend => self.conceal_in_extend_line(
+                    graphemes_length(&pivot_line),
+                    word_iterator,
+                    data,
+                    result,
+                ),
                 MethodActions::RandomASCIIWhitespace => {
                     self.conceal_in_random_ascii_whitespace(data, result)
                 }
@@ -223,7 +232,7 @@ impl<'a> ExtendedLineMethod<'a> {
             if let EncoderResult::NoDataLeft = method_result? {
                 return Ok(EncoderResult::NoDataLeft);
             }
-        };
+        }
         Ok(EncoderResult::Success)
     }
 
@@ -231,15 +240,23 @@ impl<'a> ExtendedLineMethod<'a> {
         &self,
         pivot_line_length: usize,
         word_iter: &mut Peekable<I>,
-        data: &mut dyn Iterator<Item=Bit>,
+        data: &mut dyn Iterator<Item = Bit>,
         result: &mut String,
-    ) -> Result<EncoderResult> where I: Iterator<Item=&'b str> {
+    ) -> Result<EncoderResult>
+    where
+        I: Iterator<Item = &'b str>,
+    {
         Ok(match data.next() {
             Some(Bit(1)) => {
-                let next_word = word_iter.next()
+                let next_word = word_iter
+                    .next()
                     .ok_or_else(|| MethodError::no_cover_words(self.pivot))?;
 
-                if pivot_line_length + graphemes_length(next_word) + graphemes_length(ASCII_DELIMITER) <= self.pivot {
+                if pivot_line_length
+                    + graphemes_length(next_word)
+                    + graphemes_length(ASCII_DELIMITER)
+                    <= self.pivot
+                {
                     return Err(MethodError::line_too_short(self.pivot));
                 }
 
@@ -258,7 +275,7 @@ impl<'a> ExtendedLineMethod<'a> {
 
     fn conceal_in_random_ascii_whitespace(
         &mut self,
-        data: &mut dyn Iterator<Item=Bit>,
+        data: &mut dyn Iterator<Item = Bit>,
         cover: &mut String,
     ) -> Result<EncoderResult> {
         Ok(match data.next() {
@@ -280,7 +297,7 @@ impl<'a> ExtendedLineMethod<'a> {
 
     fn conceal_in_trailing_ascii_whitespace(
         &self,
-        data: &mut dyn Iterator<Item=Bit>,
+        data: &mut dyn Iterator<Item = Bit>,
         cover: &mut String,
     ) -> Result<EncoderResult> {
         Ok(match data.next() {
@@ -297,7 +314,10 @@ impl<'a> ExtendedLineMethod<'a> {
         })
     }
 
-    fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String where I: Iterator<Item=&'b str> {
+    fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
+    where
+        I: Iterator<Item = &'b str>,
+    {
         let mut current_line_length = 0;
         let mut result = String::new();
 
@@ -317,18 +337,24 @@ impl<'a> ExtendedLineMethod<'a> {
 
             word_iter.next();
         }
-        println!("Constructed line of length: '{}' while '{}' is the pivot", current_line_length, self.pivot);
+        println!(
+            "Constructed line of length: '{}' while '{}' is the pivot",
+            current_line_length, self.pivot
+        );
         result
     }
 
-
-    fn find_approx_whitespace_position(&mut self, cover: &mut String, last_newline_index: usize) -> usize {
+    fn find_approx_whitespace_position(
+        &mut self,
+        cover: &mut String,
+        last_newline_index: usize,
+    ) -> usize {
         let rng = self.config.rng.deref_mut();
         let approx_position = rng.gen_range(last_newline_index, cover.len());
 
         let last_line = &cover[last_newline_index..];
-        let mut position = last_line.find(' ')
-            .unwrap_or_else(|| last_line.len()) + last_newline_index;
+        let mut position =
+            last_line.find(' ').unwrap_or_else(|| last_line.len()) + last_newline_index;
 
         for (index, character) in last_line.char_indices() {
             if index + last_newline_index > approx_position {
@@ -344,18 +370,21 @@ impl<'a> ExtendedLineMethod<'a> {
 
 impl<'a> SteganographyMethod<&'a str, MethodError> for ExtendedLineMethod<'a> {
     type Output = String;
-    type Input = &'a mut dyn Iterator<Item=Bit>;
+    type Input = &'a mut dyn Iterator<Item = Bit>;
 
     fn try_conceal(&mut self, cover: &str, data: Self::Input) -> Result<Self::Output> {
         self.verify_pivot(cover)?;
 
         let mut result = String::with_capacity(cover.len());
 
-        let mut word_iterator = cover.split_whitespace()
+        let mut word_iterator = cover
+            .split_whitespace()
             .filter(|word| !word.contains(char::is_whitespace))
             .peekable();
 
-        while let EncoderResult::Success = self.partial_conceal(&mut word_iterator, data, &mut result)? {
+        while let EncoderResult::Success =
+            self.partial_conceal(&mut word_iterator, data, &mut result)?
+        {
             println!("PARTIAL: {}", result);
             result.push_str(NEWLINE_STR);
         }
@@ -379,21 +408,23 @@ impl<'a> SteganographyMethod<&'a str, MethodError> for ExtendedLineMethod<'a> {
 
 #[allow(unused_imports)]
 mod test {
-    use std::error::Error;
-    use rand::Rng;
-    use rand::rngs::mock::StepRng;
     use crate::binary::BitIterator;
-    use crate::method::extended_line_method::{ExtendedLineMethod, MethodError};
     use crate::method::extended_line_method::Variant;
+    use crate::method::extended_line_method::{ExtendedLineMethod, MethodError};
     use crate::method::SteganographyMethod;
+    use rand::rngs::mock::StepRng;
+    use rand::Rng;
+    use std::error::Error;
 
     const SINGLE_CHAR_TEXT: &str = "a b ca b ca b ca b ca b c";
-    const WITH_WORDS_TEXT: &str = "A little panda has fallen from a tree. The panda went rolling down the hill";
+    const WITH_WORDS_TEXT: &str =
+        "A little panda has fallen from a tree. The panda went rolling down the hill";
     const WITH_OTHER_WHITESPACE_TEXT: &str = "A\tlittle  panda \
         has fallen from a tree. \
         The panda went rolling \
         down the\t hill";
-    const WITH_EMOJI_TEXT: &str = "A little 🐼 has (fallen) from a \\🌳/. The 🐼 went rolling down the hill.";
+    const WITH_EMOJI_TEXT: &str =
+        "A little 🐼 has (fallen) from a \\🌳/. The 🐼 went rolling down the hill.";
     const HTML_TEXT: &str = "<div> \
         <button style=\" background: red;\">Click me</button> \
         <div/> \
@@ -446,7 +477,6 @@ mod test {
         Ok(())
     }
 
-
     #[test]
     fn conceals_data_in_cover_with_other_whitespace() -> Result<(), Box<dyn Error>> {
         let data_input: Vec<u8> = vec![0b11111111];
@@ -467,10 +497,12 @@ mod test {
 
         let stego_text = method.try_conceal(WITH_EMOJI_TEXT, &mut data_iterator)?;
 
-        assert_eq!(stego_text, "A  little 🐼 has \n(fallen)  from \na  \\🌳/. The 🐼\nwent\nrolling\ndown the\nhill.");
+        assert_eq!(
+            stego_text,
+            "A  little 🐼 has \n(fallen)  from \na  \\🌳/. The 🐼\nwent\nrolling\ndown the\nhill."
+        );
         Ok(())
     }
-
 
     #[test]
     fn conceals_data_in_html_cover() -> Result<(), Box<dyn Error>> {
@@ -540,7 +572,10 @@ mod test {
 
         let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator);
 
-        assert_eq!(stego_text, Err(MethodError::pivot_too_small("little".to_string(), 2)));
+        assert_eq!(
+            stego_text,
+            Err(MethodError::pivot_too_small("little".to_string(), 2))
+        );
         Ok(())
     }
 
