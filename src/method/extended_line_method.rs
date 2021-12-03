@@ -2,7 +2,7 @@ use crate::binary::Bit;
 use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
 use crate::method::SteganographyMethod;
-use log::trace;
+use log::{debug, error, trace};
 use rand::{Rng, RngCore};
 use snafu::Snafu;
 use std::fmt::{Display, Formatter};
@@ -271,6 +271,7 @@ impl<'a> ExtendedLineMethod<'a> {
         let pivot_line = self.construct_pivot_line(word_iterator);
         result.push_str(&pivot_line);
 
+        debug!("Checking if pivot is feasible for provided cover");
         if pivot_line.is_empty() {
             let remaining_data_size = data.count();
             return Err(ConcealError::no_cover_words_left(
@@ -281,7 +282,7 @@ impl<'a> ExtendedLineMethod<'a> {
 
         for action in get_variant_methods(&self.variant) {
             let method_result = match action {
-                MethodActions::LineExtend => self.conceal_in_extend_line(
+                MethodActions::LineExtend => self.conceal_in_extended_line(
                     graphemes_length(&pivot_line),
                     word_iterator,
                     data,
@@ -301,7 +302,7 @@ impl<'a> ExtendedLineMethod<'a> {
         Ok(EncoderResult::Success)
     }
 
-    fn conceal_in_extend_line<'b, I>(
+    fn conceal_in_extended_line<'b, I>(
         &self,
         pivot_line_length: usize,
         word_iter: &mut Peekable<I>,
@@ -330,14 +331,14 @@ impl<'a> ExtendedLineMethod<'a> {
                     ));
                 }
 
-                println!("Extending line with '{}'", &next_word);
+                trace!("Extending line with '{}'", &next_word);
                 result.push_str(ASCII_DELIMITER);
                 result.push_str(next_word);
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
             _ => {
-                println!("Leaving line as-is");
+                trace!("Leaving line as-is");
                 EncoderResult::Success
             }
         })
@@ -353,13 +354,13 @@ impl<'a> ExtendedLineMethod<'a> {
                 let last_newline_index = cover.rfind(NEWLINE_STR).unwrap_or(0);
                 let position = self.find_approx_whitespace_position(cover, last_newline_index);
 
-                println!("Putting space at position {}", position);
+                trace!("Putting space at position {}", position);
                 cover.insert_str(position, &String::from(ASCII_DELIMITER));
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
             _ => {
-                println!("Skipping double whitespace");
+                trace!("Skipping double whitespace");
                 EncoderResult::Success
             }
         })
@@ -372,13 +373,13 @@ impl<'a> ExtendedLineMethod<'a> {
     ) -> Result<EncoderResult> {
         Ok(match data.next() {
             Some(Bit(1)) => {
-                println!("Putting whitespace at the end of the line");
+                trace!("Putting whitespace at the end of the line");
                 cover.push_str(ASCII_DELIMITER);
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
             _ => {
-                println!("Skipping trailing whitespace");
+                trace!("Skipping trailing whitespace");
                 EncoderResult::Success
             }
         })
@@ -407,7 +408,7 @@ impl<'a> ExtendedLineMethod<'a> {
 
             word_iter.next();
         }
-        println!(
+        trace!(
             "Constructed line of length: '{}' while '{}' is the pivot",
             current_line_length, self.pivot
         );
@@ -455,7 +456,6 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
         while let EncoderResult::Success =
             self.partial_conceal(&mut word_iterator, data, &mut result)?
         {
-            println!("PARTIAL: {}", result);
             result.push_str(NEWLINE_STR);
         }
 
