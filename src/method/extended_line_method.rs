@@ -1,14 +1,15 @@
-use crate::binary::Bit;
 use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
 use crate::method::SteganographyMethod;
-use log::{debug, error, trace};
+use log::{debug, trace};
 use rand::{Rng, RngCore};
 use snafu::Snafu;
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
-use std::ops::DerefMut;
+use std::ops::{DerefMut};
 use std::sync::mpsc::Sender;
+use bitvec::prelude::*;
+use bitvec::slice::Iter;
 use unicode_segmentation::UnicodeSegmentation;
 
 const ASCII_DELIMITER: &str = " ";
@@ -86,7 +87,7 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
     /// ```
     /// use std::sync::mpsc::channel;
     /// use rand::rngs::mock::StepRng;
-    /// use ptero::method::extended_line_method::{ExtendedLineMethod, Variant};
+    /// use ptero::method::extended_line_method::{ExtendedLineMethodBuilder, Variant};
     /// use ptero::method::config::MethodProgressStatus;
     ///
     /// let method = ExtendedLineMethodBuilder::default().build();
@@ -97,7 +98,7 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
     /// ```
     /// use std::sync::mpsc::channel;
     /// use rand::rngs::mock::StepRng;
-    /// use ptero::method::extended_line_method::{ExtendedLineMethod, Variant};
+    /// use ptero::method::extended_line_method::{ExtendedLineMethodBuilder, Variant};
     /// use ptero::method::config::MethodProgressStatus;
     ///
     /// let (tx, rx) = channel::<MethodProgressStatus>();
@@ -155,18 +156,18 @@ pub enum ConcealError {
     /// Used pivot was not suitable for selected cover text.
     /// Cover text has words that are longer the pivot and the method cannot construct a feasible line.
     #[snafu(display(
-        "Pivot '{}' is smaller then the longest word in cover: '{}'",
-        pivot,
-        word
+    "Pivot '{}' is smaller then the longest word in cover: '{}'",
+    pivot,
+    word
     ))]
     PivotTooSmall { word: String, pivot: usize },
     /// Used cover text can't hide selected amount of data.
     /// Can happen at various stages of concealing.
     #[snafu(display(
-        "{}. '{}' bytes left unprocessed while using '{}' as a pivot",
-        reason,
-        remaining_data_size,
-        pivot
+    "{}. '{}' bytes left unprocessed while using '{}' as a pivot",
+    reason,
+    remaining_data_size,
+    pivot
     ))]
     CoverTextTooSmall {
         reason: CoverTooSmallErrorReason,
@@ -259,14 +260,16 @@ impl<'a> ExtendedLineMethod<'a> {
         }
     }
 
-    fn partial_conceal<'b, I>(
+    fn partial_conceal<'b, IteratorType, Order, Type>(
         &mut self,
-        word_iterator: &mut Peekable<I>,
-        data: &mut dyn Iterator<Item = Bit>,
+        word_iterator: &mut Peekable<IteratorType>,
+        data: &mut Iter<Order, Type>,
         result: &mut String,
     ) -> Result<EncoderResult>
-    where
-        I: Iterator<Item = &'b str>,
+        where
+            IteratorType: Iterator<Item=&'b str>,
+            Order: BitOrder,
+            Type: BitStore
     {
         let pivot_line = self.construct_pivot_line(word_iterator);
         result.push_str(&pivot_line);
@@ -302,18 +305,20 @@ impl<'a> ExtendedLineMethod<'a> {
         Ok(EncoderResult::Success)
     }
 
-    fn conceal_in_extended_line<'b, I>(
+    fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
         &self,
         pivot_line_length: usize,
-        word_iter: &mut Peekable<I>,
-        data: &mut dyn Iterator<Item = Bit>,
+        word_iter: &mut Peekable<IteratorType>,
+        data: &mut Iter<Order, Type>,
         result: &mut String,
     ) -> Result<EncoderResult>
-    where
-        I: Iterator<Item = &'b str>,
+        where
+            IteratorType: Iterator<Item=&'b str>,
+            Order: BitOrder,
+            Type: BitStore
     {
-        Ok(match data.next() {
-            Some(Bit(1)) => {
+        Ok(match data.next().as_deref() {
+            Some(true) => {
                 let next_word = word_iter.next().ok_or_else(|| {
                     let remaining_data_size = data.count();
                     ConcealError::no_cover_words_left(remaining_data_size, self.pivot)
@@ -336,21 +341,23 @@ impl<'a> ExtendedLineMethod<'a> {
                 result.push_str(next_word);
                 EncoderResult::Success
             }
-            None => EncoderResult::NoDataLeft,
-            _ => {
+            Some(false) => {
                 trace!("Leaving line as-is");
                 EncoderResult::Success
             }
+            None => EncoderResult::NoDataLeft,
         })
     }
 
-    fn conceal_in_random_ascii_whitespace(
+    fn conceal_in_random_ascii_whitespace<Order, Type>(
         &mut self,
-        data: &mut dyn Iterator<Item = Bit>,
+        data: &mut Iter<Order, Type>,
         cover: &mut String,
-    ) -> Result<EncoderResult> {
-        Ok(match data.next() {
-            Some(Bit(1)) => {
+    ) -> Result<EncoderResult>
+        where Order: BitOrder, Type: BitStore
+    {
+        Ok(match data.next().as_deref() {
+            Some(true) => {
                 let last_newline_index = cover.rfind(NEWLINE_STR).unwrap_or(0);
                 let position = self.find_approx_whitespace_position(cover, last_newline_index);
 
@@ -358,36 +365,38 @@ impl<'a> ExtendedLineMethod<'a> {
                 cover.insert_str(position, &String::from(ASCII_DELIMITER));
                 EncoderResult::Success
             }
-            None => EncoderResult::NoDataLeft,
-            _ => {
+            Some(false) => {
                 trace!("Skipping double whitespace");
                 EncoderResult::Success
             }
+            None => EncoderResult::NoDataLeft,
         })
     }
 
-    fn conceal_in_trailing_ascii_whitespace(
+    fn conceal_in_trailing_ascii_whitespace<Order, Type>(
         &self,
-        data: &mut dyn Iterator<Item = Bit>,
+        data: &mut Iter<Order, Type>,
         cover: &mut String,
-    ) -> Result<EncoderResult> {
-        Ok(match data.next() {
-            Some(Bit(1)) => {
+    ) -> Result<EncoderResult>
+        where Order: BitOrder, Type: BitStore
+    {
+        Ok(match data.next().as_deref() {
+            Some(true) => {
                 trace!("Putting whitespace at the end of the line");
                 cover.push_str(ASCII_DELIMITER);
                 EncoderResult::Success
             }
-            None => EncoderResult::NoDataLeft,
-            _ => {
+            Some(false) => {
                 trace!("Skipping trailing whitespace");
                 EncoderResult::Success
             }
+            None => EncoderResult::NoDataLeft,
         })
     }
 
     fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
-    where
-        I: Iterator<Item = &'b str>,
+        where
+            I: Iterator<Item=&'b str>,
     {
         let mut current_line_length = 0;
         let mut result = String::new();
@@ -410,7 +419,8 @@ impl<'a> ExtendedLineMethod<'a> {
         }
         trace!(
             "Constructed line of length: '{}' while '{}' is the pivot",
-            current_line_length, self.pivot
+            current_line_length,
+            self.pivot
         );
         result
     }
@@ -440,10 +450,13 @@ impl<'a> ExtendedLineMethod<'a> {
 }
 
 impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
-    type Output = String;
-    type Input = &'a mut dyn Iterator<Item = Bit>;
+    type ConcealedOutput = String;
+    type RevealedOutput = BitVec;
 
-    fn try_conceal(&mut self, cover: &str, data: Self::Input) -> Result<Self::Output> {
+    fn try_conceal<Order, Type>(&mut self, cover: &str, data: &mut Iter<Order, Type>) -> Result<Self::ConcealedOutput>
+        where Order: BitOrder,
+              Type: BitStore
+    {
         self.verify_pivot(cover)?;
 
         let mut result = String::with_capacity(cover.len());
@@ -454,7 +467,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
             .peekable();
 
         while let EncoderResult::Success =
-            self.partial_conceal(&mut word_iterator, data, &mut result)?
+        self.partial_conceal(&mut word_iterator, data, &mut result)?
         {
             result.push_str(NEWLINE_STR);
         }
@@ -471,7 +484,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
         Ok(result)
     }
 
-    fn try_reveal(&mut self, stego_text: &str) -> Result<Self::Input> {
+    fn try_reveal(&mut self, stego_text: &str) -> Result<Self::RevealedOutput> {
         todo!()
     }
 }
@@ -485,6 +498,10 @@ mod test {
     use rand::rngs::mock::StepRng;
     use rand::Rng;
     use std::error::Error;
+    use bitvec::bitvec;
+    use bitvec::order::Lsb0;
+    use bitvec::prelude::Msb0;
+    use bitvec::view::{AsBits, BitView};
 
     const SINGLE_CHAR_TEXT: &str = "a b ca b ca b ca b ca b c";
     const WITH_WORDS_TEXT: &str =
@@ -514,10 +531,9 @@ mod test {
     #[test]
     fn conceals_text_data() -> Result<(), Box<dyn Error>> {
         let data_input = "a";
-        let mut data_iterator = BitIterator::new(data_input.as_bytes());
         let mut method = get_method(4, Variant::V1);
 
-        let stego_text = method.try_conceal(SINGLE_CHAR_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(SINGLE_CHAR_TEXT, &mut data_input.as_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "a  b \nca b\nca  b\nca b\nca b\nc");
         Ok(())
@@ -525,11 +541,10 @@ mod test {
 
     #[test]
     fn conceals_binary_data() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input = bitvec![1; 8];
         let mut method = get_method(3, Variant::V1);
 
-        let stego_text = method.try_conceal(SINGLE_CHAR_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(SINGLE_CHAR_TEXT, &mut data_input.iter())?;
 
         assert_eq!(stego_text, "a  b ca \nb  ca \nb  ca\nb\nca\nb c");
         Ok(())
@@ -537,11 +552,10 @@ mod test {
 
     #[test]
     fn conceals_data_in_cover_with_words() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input: u8 = 255;
         let mut method = get_method(10, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill");
         Ok(())
@@ -549,11 +563,10 @@ mod test {
 
     #[test]
     fn conceals_data_in_cover_with_other_whitespace() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input: u8 = 255;
         let mut method = get_method(10, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_OTHER_WHITESPACE_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_OTHER_WHITESPACE_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill");
         Ok(())
@@ -561,11 +574,10 @@ mod test {
 
     #[test]
     fn conceals_data_in_cover_with_special_chars() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input: u8 = 255;
         let mut method = get_method(10, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_EMOJI_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_EMOJI_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(
             stego_text,
@@ -576,11 +588,10 @@ mod test {
 
     #[test]
     fn conceals_data_in_html_cover() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input: u8 = 255;
         let mut method = get_method(15, Variant::V1);
 
-        let stego_text = method.try_conceal(HTML_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(HTML_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "<div>  <button style=\" \nbackground:  red;\">Click \nme</button>  <div/>\n<footer> This\nis the end\n</footer>");
         Ok(())
@@ -589,10 +600,9 @@ mod test {
     #[test]
     fn conceals_with_variant_v1() -> Result<(), Box<dyn Error>> {
         let data_input: Vec<u8> = vec![0b10101011];
-        let mut data_iterator = BitIterator::new(&data_input);
         let mut method = get_method(8, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A little panda \nhas \nfallen  from\na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -601,10 +611,9 @@ mod test {
     #[test]
     fn conceals_with_variant_v2() -> Result<(), Box<dyn Error>> {
         let data_input: Vec<u8> = vec![0b10101011];
-        let mut data_iterator = BitIterator::new(&data_input);
         let mut method = get_method(8, Variant::V2);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little panda\nhas \nfallen from \na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -613,10 +622,9 @@ mod test {
     #[test]
     fn conceals_with_variant_v3() -> Result<(), Box<dyn Error>> {
         let data_input: Vec<u8> = vec![0b10101011];
-        let mut data_iterator = BitIterator::new(&data_input);
         let mut method = get_method(8, Variant::V3);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little \npanda has\nfallen  from\na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -625,10 +633,9 @@ mod test {
     #[test]
     fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
         let data_input: Vec<u8> = vec![0b0];
-        let mut data_iterator = BitIterator::new(&data_input);
         let mut method = get_method(8, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator)?;
+        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A little\npanda\nhas\nfallen\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -636,11 +643,10 @@ mod test {
 
     #[test]
     fn errors_when_cover_contains_word_longer_than_pivot() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input = bitvec![1; 8];
         let mut method = get_method(2, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_iterator);
+        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.iter());
 
         assert_eq!(
             stego_text,
@@ -651,11 +657,10 @@ mod test {
 
     #[test]
     fn errors_when_cover_is_too_small() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input = bitvec![1; 8];
         let mut method = get_method(5, Variant::V3);
 
-        let stego_text = method.try_conceal(TINY_TEXT, &mut data_iterator);
+        let stego_text = method.try_conceal(TINY_TEXT, &mut data_input.iter());
 
         assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(5, 5)));
         Ok(())
@@ -663,11 +668,10 @@ mod test {
 
     #[test]
     fn errors_when_cover_is_empty() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b11111111];
-        let mut data_iterator = BitIterator::new(&data_input);
+        let data_input = bitvec![1; 8];
         let mut method = get_method(5, Variant::V3);
 
-        let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_iterator);
+        let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_input.iter());
 
         assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(8, 5)));
         Ok(())

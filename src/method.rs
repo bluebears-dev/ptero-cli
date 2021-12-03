@@ -1,5 +1,8 @@
 use std::error::Error;
 use std::sync::mpsc::Sender;
+use bitvec::prelude::{BitOrder, BitStore, Lsb0};
+use bitvec::slice::Iter;
+use bitvec::view::{AsBits, BitView};
 use rand::{Rng, RngCore, SeedableRng};
 use rand::rngs::StdRng;
 use crate::{context::Context, decoder::Decoder, encoder::Encoder};
@@ -36,9 +39,10 @@ pub trait Method<E, D>: Encoder<E> + Decoder<D>
 }
 
 pub trait SteganographyMethod<Cover, Err> {
-    type Output;
-    type Input;
+    type ConcealedOutput;
+    type RevealedOutput;
 
-    fn try_conceal(&mut self, cover: Cover, data: Self::Input) -> Result<Self::Output, Err>;
-    fn try_reveal(&mut self, cover: Cover) -> Result<Self::Input, Err>;
+    fn try_conceal<Order, Type>(&mut self, cover: Cover, data: &mut Iter<Order, Type>) -> Result<Self::ConcealedOutput, Err>
+        where Order: BitOrder, Type: BitStore;
+    fn try_reveal(&mut self, cover: Cover) -> Result<Self::RevealedOutput, Err>;
 }
