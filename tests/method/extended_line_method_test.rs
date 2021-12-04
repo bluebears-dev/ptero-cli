@@ -232,13 +232,21 @@ fn errors_when_cover_is_empty() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+const STEGO_SINGLE_LETTERS: &str = "a  b \nca b\nca  b\nca b\nca b\nc";
+const STEGO_WITH_WORDS: &str = "A  little \npanda has\nfallen  from";
+const STEGO_WITH_OTHER_WHITESPACE: &str = "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill";
+const STEGO_WITH_SPECIAL_CHARS: &str = "A  little 🐼 has \n(fallen)  from \na  \\🌳/. The 🐼\nwent\nrolling\ndown the\nhill.";
+const STEGO_HTML: &str = "<div>  <button style=\" \nbackground:  red;\">Click \nme</button>  <div/>\n<footer> This\nis the end\n</footer>";
+const STEGO_V1_CONCEALED: &str = "A little panda \nhas  fallen\nfrom  a tree.\nThe panda\nwent\nrolling\ndown the\nhill";
+const STEGO_V2_CONCEALED: &str = "A  little panda\nhas \nfallen from \na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill";
+const STEGO_V3_CONCEALED: &str = "A  little \npanda has fallen\nfrom  a tree.\nThe panda\nwent\nrolling\ndown the\nhill";
+
 #[test]
 fn reveals_from_one_lettered_text() -> Result<(), Box<dyn Error>> {
-    let stego_text = "a  b \nca b\nca  b\nca b\nca b\nc";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(4, Variant::V1, &rng);
 
-    let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let data: BitVec<Msb0, u8> = method.try_reveal(STEGO_SINGLE_LETTERS)?;
 
     assert_eq!(data.len(), 18);
     assert_eq!(
@@ -250,11 +258,10 @@ fn reveals_from_one_lettered_text() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_text() -> Result<(), Box<dyn Error>> {
-    let stego_text = "A  little \npanda has\nfallen  from";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(4, Variant::V1, &rng);
 
-    let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let data: BitVec<Msb0, u8> = method.try_reveal(STEGO_WITH_WORDS)?;
 
     assert_eq!(data.len(), 9);
     assert_eq!(
@@ -266,11 +273,10 @@ fn reveals_from_text() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_text_with_other_whitespace() -> Result<(), Box<dyn Error>> {
-    let stego_text = "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(10, Variant::V1, &rng);
 
-    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(STEGO_WITH_OTHER_WHITESPACE)?;
 
     assert_eq!(revealed_data.len(), 21);
     assert_eq!(
@@ -282,11 +288,10 @@ fn reveals_from_text_with_other_whitespace() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_text_with_special_chars() -> Result<(), Box<dyn Error>> {
-    let stego_text = "A  little 🐼 has \n(fallen)  from \na  \\🌳/. The 🐼\nwent\nrolling\ndown the\nhill.";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(10, Variant::V1, &rng);
 
-    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(STEGO_WITH_SPECIAL_CHARS)?;
 
     assert_eq!(revealed_data.len(), 21);
     assert_eq!(
@@ -298,11 +303,10 @@ fn reveals_from_text_with_special_chars() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_html() -> Result<(), Box<dyn Error>> {
-    let stego_text = "<div>  <button style=\" \nbackground:  red;\">Click \nme</button>  <div/>\n<footer> This\nis the end\n</footer>";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(15, Variant::V1, &rng);
 
-    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(STEGO_HTML)?;
 
     assert_eq!(revealed_data.len(), 18);
     assert_eq!(
@@ -314,11 +318,10 @@ fn reveals_from_html() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_text_with_variant_v1() -> Result<(), Box<dyn Error>> {
-    let stego_text = "A little panda \nhas  fallen\nfrom  a tree.\nThe panda\nwent\nrolling\ndown the\nhill";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(10, Variant::V1, &rng);
 
-    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(STEGO_V1_CONCEALED)?;
 
     assert_eq!(revealed_data.len(), 24);
     assert_eq!(
@@ -330,11 +333,10 @@ fn reveals_from_text_with_variant_v1() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_text_with_variant_v2() -> Result<(), Box<dyn Error>> {
-    let stego_text = "A  little panda\nhas \nfallen from \na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(8, Variant::V2, &rng);
 
-    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(STEGO_V2_CONCEALED)?;
 
     assert_eq!(revealed_data.len(), 30);
     assert_eq!(
@@ -346,11 +348,10 @@ fn reveals_from_text_with_variant_v2() -> Result<(), Box<dyn Error>> {
 
 #[test]
 fn reveals_from_text_with_variant_v3() -> Result<(), Box<dyn Error>> {
-    let stego_text = "A  little \npanda has fallen\nfrom  a tree.\nThe panda\nwent\nrolling\ndown the\nhill";
     let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     let mut method = get_method(10, Variant::V3, &rng);
 
-    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    let revealed_data: BitVec<Msb0, u8> = method.try_reveal(STEGO_V3_CONCEALED)?;
 
     assert_eq!(revealed_data.len(), 24);
     assert_eq!(
