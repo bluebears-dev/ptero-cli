@@ -471,6 +471,8 @@ pub enum ConcealError {
         remaining_data_size: usize,
         pivot: usize,
     },
+    /// Used when pivot line contains too few words to input random whitespace.
+    /// Adjusting pivot so that more than one word appears on line will mitigate issue.
     #[snafu(display("Line '{}' doesn't have enough words to conceal a bit", line))]
     NotEnoughWordsOnPivotLine { line: String },
 }
@@ -489,7 +491,7 @@ impl ConcealError {
         }
     }
 
-    fn line_too_short(remaining_data_size: usize, pivot: usize) -> ConcealError {
+    pub fn line_too_short(remaining_data_size: usize, pivot: usize) -> ConcealError {
         ConcealError::CoverTextTooSmall {
             reason: CoverTooSmallErrorReason::ConstructedTooShortLine,
             remaining_data_size,
