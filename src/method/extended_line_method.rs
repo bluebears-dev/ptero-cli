@@ -13,13 +13,17 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
-use crate::method::random_whitespace_method::RandomWhitespaceMethod;
 use crate::method::SteganographyMethod;
-use crate::method::trailing_whitespace_method::TrailingWhitespaceMethod;
+
+use self::random_whitespace_method::RandomWhitespaceMethod;
+use self::trailing_whitespace_method::TrailingWhitespaceMethod;
 
 const ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 const DEFAULT_PIVOT: usize = 15;
+
+mod random_whitespace_method;
+mod trailing_whitespace_method;
 
 #[derive(Debug)]
 pub(crate) enum MethodActions {
@@ -192,7 +196,9 @@ impl<'a> ExtendedLineMethod<'a> {
         ExtendedLineMethodBuilder::default()
     }
 
-    fn verify_pivot(&self, cover: &str) -> VerificationResult {
+    pub fn verify_pivot(&self, cover: &str) -> VerificationResult {
+        debug!("Checking if pivot is feasible for provided cover");
+
         let words_longer_than_pivot = cover
             .split_whitespace()
             .filter(|word| word.len() > self.pivot)
@@ -234,7 +240,6 @@ impl<'a> ExtendedLineMethod<'a> {
         let pivot_line = self.construct_pivot_line(word_iterator);
         result.push_str(&pivot_line);
 
-        debug!("Checking if pivot is feasible for provided cover");
         if pivot_line.is_empty() {
             let remaining_data_size = data.count();
             return Err(ConcealError::no_cover_words_left(
@@ -255,7 +260,7 @@ impl<'a> ExtendedLineMethod<'a> {
                     result,
                 ),
                 MethodActions::RandomASCIIWhitespace => {
-                    Ok(random_whitespace_submethod.conceal_in_random_whitespace(data, result))
+                    random_whitespace_submethod.conceal_in_random_whitespace(data, result)
                 }
                 MethodActions::TrailingASCIIWhitespace => {
                     Ok(trailing_whitespace_submethod.conceal_in_trailing_whitespace(data, result))
@@ -268,11 +273,7 @@ impl<'a> ExtendedLineMethod<'a> {
         Ok(EncoderResult::Success)
     }
 
-    fn partial_reveal<'b, Order, Type>(
-        &mut self,
-        line: &str,
-        revealed_data: &mut BitVec<Order, Type>,
-    ) -> Result<()>
+    fn partial_reveal<Order, Type>(&mut self, line: &str, revealed_data: &mut BitVec<Order, Type>)
     where
         Order: BitOrder,
         Type: BitStore,
@@ -287,7 +288,7 @@ impl<'a> ExtendedLineMethod<'a> {
         for action in actions.iter().rev() {
             match action {
                 MethodActions::LineExtend => {
-                    self.reveal_in_extended_line(&mut current_line, &mut gathered_bits);
+                    self.reveal_in_extended_line(&current_line, &mut gathered_bits);
                 }
                 MethodActions::RandomASCIIWhitespace => {
                     random_whitespace_submethod
@@ -301,8 +302,6 @@ impl<'a> ExtendedLineMethod<'a> {
         }
         gathered_bits.reverse();
         revealed_data.append(&mut gathered_bits);
-
-        Ok(())
     }
 
     pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
@@ -358,8 +357,7 @@ impl<'a> ExtendedLineMethod<'a> {
         Type: BitStore,
     {
         let bit = graphemes_length(stego_text_line) > self.pivot;
-        println!("extended decoded '{}'", bit);
-
+        trace!("Found extended line: '{}'", bit);
         revealed_data.push(bit)
     }
 
@@ -442,7 +440,6 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
         let mut revealed_data: BitVec<Order, Type> = BitVec::new();
 
         for line in stego_text.split(NEWLINE_STR) {
-            println!("LINE: '{}'", line);
             self.partial_reveal(line, &mut revealed_data);
         }
 
@@ -474,15 +471,17 @@ pub enum ConcealError {
         remaining_data_size: usize,
         pivot: usize,
     },
+    #[snafu(display("Line '{}' doesn't have enough words to conceal a bit", line))]
+    NotEnoughWordsOnPivotLine { line: String },
 }
 
 #[cfg(not(tarpaulin_include))]
 impl ConcealError {
-    fn pivot_too_small(word: String, pivot: usize) -> ConcealError {
+    pub fn pivot_too_small(word: String, pivot: usize) -> ConcealError {
         ConcealError::PivotTooSmall { word, pivot }
     }
 
-    fn no_cover_words_left(remaining_data_size: usize, pivot: usize) -> ConcealError {
+    pub fn no_cover_words_left(remaining_data_size: usize, pivot: usize) -> ConcealError {
         ConcealError::CoverTextTooSmall {
             reason: CoverTooSmallErrorReason::NoCoverWordsLeft,
             remaining_data_size,
@@ -495,6 +494,12 @@ impl ConcealError {
             reason: CoverTooSmallErrorReason::ConstructedTooShortLine,
             remaining_data_size,
             pivot,
+        }
+    }
+
+    pub fn not_enough_words(line: &str) -> ConcealError {
+        ConcealError::NotEnoughWordsOnPivotLine {
+            line: line.to_string(),
         }
     }
 }
@@ -522,240 +527,5 @@ impl Display for CoverTooSmallErrorReason {
                 )
             }
         }
-    }
-}
-
-#[allow(unused_imports)]
-mod test {
-    use std::cell::RefCell;
-    use std::error::Error;
-    use std::rc::{Rc, Weak};
-
-    use bitvec::bitvec;
-    use bitvec::order::Lsb0;
-    use bitvec::prelude::{BitVec, Msb0};
-    use bitvec::view::{AsBits, BitView};
-    use rand::{Rng, RngCore};
-    use rand::rngs::mock::StepRng;
-
-    use crate::binary::BitIterator;
-    use crate::method::extended_line_method::{ConcealError, ExtendedLineMethod};
-    use crate::method::extended_line_method::Variant;
-    use crate::method::SteganographyMethod;
-
-    const SINGLE_CHAR_TEXT: &str = "a b ca b ca b ca b ca b c";
-    const WITH_WORDS_TEXT: &str =
-        "A little panda has fallen from a tree. The panda went rolling down the hill";
-    const WITH_OTHER_WHITESPACE_TEXT: &str = "A\tlittle  panda \
-        has fallen from a tree. \
-        The panda went rolling \
-        down the\t hill";
-    const WITH_EMOJI_TEXT: &str =
-        "A little 🐼 has (fallen) from a \\🌳/. The 🐼 went rolling down the hill.";
-    const HTML_TEXT: &str = "<div> \
-        <button style=\" background: red;\">Click me</button> \
-        <div/> \
-        <footer> This is the end \
-        </footer>";
-    const TINY_TEXT: &str = "TINY COVER";
-    const EMPTY_TEXT: &str = "";
-
-    fn get_method<'a>(
-        pivot: usize,
-        variant: Variant,
-        rng: &Rc<RefCell<dyn RngCore>>,
-    ) -> ExtendedLineMethod<'a> {
-        ExtendedLineMethod::builder()
-            .with_pivot(pivot)
-            .with_rng(rng)
-            .with_variant(variant)
-            .build()
-    }
-
-    #[test]
-    fn conceals_text_data() -> Result<(), Box<dyn Error>> {
-        let data_input = "a";
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(4, Variant::V1, &rng);
-
-        let stego_text =
-            method.try_conceal(SINGLE_CHAR_TEXT, &mut data_input.as_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "a  b \nca b\nca  b\nca b\nca b\nc");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_binary_data() -> Result<(), Box<dyn Error>> {
-        let data_input = bitvec![1; 8];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(3, Variant::V1, &rng);
-
-        let stego_text = method.try_conceal(SINGLE_CHAR_TEXT, &mut data_input.iter())?;
-
-        assert_eq!(stego_text, "a  b ca \nb  ca \nb  ca\nb\nca\nb c");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_data_in_cover_with_words() -> Result<(), Box<dyn Error>> {
-        let data_input: u8 = 255;
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(10, Variant::V1, &rng);
-
-        let stego_text =
-            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_data_in_cover_with_other_whitespace() -> Result<(), Box<dyn Error>> {
-        let data_input: u8 = 255;
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(10, Variant::V1, &rng);
-
-        let stego_text = method.try_conceal(
-            WITH_OTHER_WHITESPACE_TEXT,
-            &mut data_input.view_bits::<Msb0>().iter(),
-        )?;
-
-        assert_eq!(stego_text, "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_data_in_cover_with_special_chars() -> Result<(), Box<dyn Error>> {
-        let data_input: u8 = 255;
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(10, Variant::V1, &rng);
-
-        let stego_text =
-            method.try_conceal(WITH_EMOJI_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(
-            stego_text,
-            "A  little 🐼 has \n(fallen)  from \na  \\🌳/. The 🐼\nwent\nrolling\ndown the\nhill."
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_data_in_html_cover() -> Result<(), Box<dyn Error>> {
-        let data_input: u8 = 255;
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(15, Variant::V1, &rng);
-
-        let stego_text =
-            method.try_conceal(HTML_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "<div>  <button style=\" \nbackground:  red;\">Click \nme</button>  <div/>\n<footer> This\nis the end\n</footer>");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_with_variant_v1() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b10101011];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(8, Variant::V1, &rng);
-
-        let stego_text =
-            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "A little panda \nhas \nfallen  from\na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_with_variant_v2() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b10101011];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(8, Variant::V2, &rng);
-
-        let stego_text =
-            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "A  little panda\nhas \nfallen from \na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
-        Ok(())
-    }
-
-    #[test]
-    fn conceals_with_variant_v3() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b10101011];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(8, Variant::V3, &rng);
-
-        let stego_text =
-            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "A  little \npanda has\nfallen  from\na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
-        Ok(())
-    }
-
-    #[test]
-    fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
-        let data_input: Vec<u8> = vec![0b0];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(8, Variant::V1, &rng);
-
-        let stego_text =
-            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
-
-        assert_eq!(stego_text, "A little\npanda\nhas\nfallen\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
-        Ok(())
-    }
-
-    #[test]
-    fn errors_when_cover_contains_word_longer_than_pivot() -> Result<(), Box<dyn Error>> {
-        let data_input = bitvec![1; 8];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(2, Variant::V1, &rng);
-
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.iter());
-
-        assert_eq!(
-            stego_text,
-            Err(ConcealError::pivot_too_small("little".to_string(), 2))
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn errors_when_cover_is_too_small() -> Result<(), Box<dyn Error>> {
-        let data_input = bitvec![1; 8];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(5, Variant::V3, &rng);
-
-        let stego_text = method.try_conceal(TINY_TEXT, &mut data_input.iter());
-
-        assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(5, 5)));
-        Ok(())
-    }
-
-    #[test]
-    fn errors_when_cover_is_empty() -> Result<(), Box<dyn Error>> {
-        let data_input = bitvec![1; 8];
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(5, Variant::V3, &rng);
-
-        let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_input.iter());
-
-        assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(8, 5)));
-        Ok(())
-    }
-
-    #[test]
-    fn reveals_from_one_lettered_text() -> Result<(), Box<dyn Error>> {
-        let stego_text = "a  b \nca b\nca  b\nca b\nca b\nc";
-        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-        let mut method = get_method(4, Variant::V1, &rng);
-
-        let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
-
-        assert_eq!(data.len(), 18);
-        // Letter "a" - 01100001 then the rest is 0
-        assert_eq!(data, bitvec![Msb0, u8; 0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0]);
-        Ok(())
     }
 }

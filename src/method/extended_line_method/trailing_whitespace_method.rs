@@ -109,7 +109,7 @@ impl<'a> TrailingWhitespaceMethod<'a> {
             .map(|cluster| cluster == self.whitespace_str)
             .unwrap_or(false);
 
-        println!("trailing decoded '{}'", bit);
+        trace!("Found trailing whitespace: {}", bit);
         if bit {
             stego_text_line.remove(stego_text_line.len() - 1);
         }

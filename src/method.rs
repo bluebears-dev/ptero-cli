@@ -30,8 +30,6 @@ pub mod variant;
 
 pub mod config;
 pub mod extended_line_method;
-mod random_whitespace_method;
-mod trailing_whitespace_method;
 
 /// Combination of [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits - each method should be able to encode and decode.
 pub trait Method<E, D>: Encoder<E> + Decoder<D>

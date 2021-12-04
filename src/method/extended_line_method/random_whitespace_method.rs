@@ -12,20 +12,21 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
+use crate::method::extended_line_method::{ConcealError, Result};
 
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 
 pub struct RandomWhitespaceMethodBuilder<'a> {
     config_builder: CommonMethodConfigBuilder<'a>,
-    whitespace_str: &'static str
+    whitespace_str: &'static str,
 }
 
 impl<'a> Default for RandomWhitespaceMethodBuilder<'a> {
     fn default() -> Self {
         RandomWhitespaceMethodBuilder {
-            config_builder:  CommonMethodConfig::builder(),
-            whitespace_str: DEFAULT_ASCII_DELIMITER
+            config_builder: CommonMethodConfig::builder(),
+            whitespace_str: DEFAULT_ASCII_DELIMITER,
         }
     }
 }
@@ -45,7 +46,10 @@ impl<'a> RandomWhitespaceMethodBuilder<'a> {
 
     /// Proxy method for passing optional, see [`RandomWhitespaceMethodBuilder::register`] for
     /// alternative.
-    pub fn maybe_register(mut self, maybe_observer: Option<&'a Sender<MethodProgressStatus>>) -> Self {
+    pub fn maybe_register(
+        mut self,
+        maybe_observer: Option<&'a Sender<MethodProgressStatus>>,
+    ) -> Self {
         self.config_builder = self.config_builder.maybe_register(maybe_observer);
         self
     }
@@ -59,14 +63,14 @@ impl<'a> RandomWhitespaceMethodBuilder<'a> {
     pub fn build(self) -> RandomWhitespaceMethod<'a> {
         RandomWhitespaceMethod {
             config: self.config_builder.build().unwrap(),
-            whitespace_str: self.whitespace_str
+            whitespace_str: self.whitespace_str,
         }
     }
 }
 
 pub struct RandomWhitespaceMethod<'a> {
     config: CommonMethodConfig<'a>,
-    whitespace_str: &'static str
+    whitespace_str: &'static str,
 }
 
 impl<'a> RandomWhitespaceMethod<'a> {
@@ -101,15 +105,24 @@ impl<'a> RandomWhitespaceMethod<'a> {
         &mut self,
         data: &mut Iter<Order, Type>,
         cover: &mut String,
-    ) -> EncoderResult
-        where
-            Order: BitOrder,
-            Type: BitStore,
+    ) -> Result<EncoderResult>
+    where
+        Order: BitOrder,
+        Type: BitStore,
     {
-        match data.next().as_deref() {
+        Ok(match data.next().as_deref() {
             Some(true) => {
-                let last_newline_index = cover.rfind(NEWLINE_STR).unwrap_or(0);
+                let last_newline_index = cover.rfind(NEWLINE_STR)
+                    .map(|index| index + 1)
+                    .unwrap_or(0);
+
                 let position = self.find_approx_whitespace_position(cover, last_newline_index);
+
+                if position == cover.len() {
+                    return Err(ConcealError::not_enough_words(
+                        &cover[last_newline_index..],
+                    ));
+                }
 
                 trace!("Putting space at position {}", position);
                 cover.insert_str(position, &String::from(self.whitespace_str));
@@ -120,32 +133,29 @@ impl<'a> RandomWhitespaceMethod<'a> {
                 EncoderResult::Success
             }
             None => EncoderResult::NoDataLeft,
-        }
+        })
     }
 
     pub(crate) fn reveal_in_random_whitespace<Order, Type>(
         &mut self,
         stego_text_line: &mut String,
-        revealed_data: &mut BitVec<Order, Type>
-    )
-        where
-            Order: BitOrder,
-            Type: BitStore,
+        revealed_data: &mut BitVec<Order, Type>,
+    ) where
+        Order: BitOrder,
+        Type: BitStore,
     {
         let mut seen_whitespace = false;
         let mut bit = false;
         for (index, cluster) in stego_text_line.graphemes(true).enumerate() {
             let is_methods_whitespace = cluster == self.whitespace_str;
             if seen_whitespace && is_methods_whitespace {
-                trace!("Found two consecutive whitespaces, last being {}", cluster);
                 stego_text_line.remove(index);
                 bit = true;
                 break;
             }
             seen_whitespace = cluster.contains(char::is_whitespace);
         }
-        println!("random decoded '{}'", bit);
-
+        trace!("Found two consecutive whitespaces: {}", bit);
         revealed_data.push(bit);
     }
 }
