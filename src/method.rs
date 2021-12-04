@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::sync::mpsc::Sender;
 
-use bitvec::prelude::{BitOrder, BitStore, Lsb0};
+use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use bitvec::view::{AsBits, BitView};
 use rand::{Rng, RngCore, SeedableRng};
@@ -30,8 +30,8 @@ pub mod variant;
 
 pub mod config;
 pub mod extended_line_method;
-pub mod random_whitespace_method;
-pub mod trailing_whitespace_method;
+mod random_whitespace_method;
+mod trailing_whitespace_method;
 
 /// Combination of [Encoder](crate::encoder::Encoder) and [Decoder](crate::decoder::Decoder) traits - each method should be able to encode and decode.
 pub trait Method<E, D>: Encoder<E> + Decoder<D>
@@ -44,7 +44,6 @@ where
 
 pub trait SteganographyMethod<Cover, Err> {
     type ConcealedOutput;
-    type RevealedOutput;
 
     fn try_conceal<Order, Type>(
         &mut self,
@@ -54,5 +53,9 @@ pub trait SteganographyMethod<Cover, Err> {
     where
         Order: BitOrder,
         Type: BitStore;
-    fn try_reveal(&mut self, cover: Cover) -> Result<Self::RevealedOutput, Err>;
+
+    fn try_reveal<Order, Type>(&mut self, cover: Cover) -> Result<BitVec<Order, Type>, Err>
+    where
+        Order: BitOrder,
+        Type: BitStore;
 }

@@ -6,6 +6,7 @@ use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::trace;
 use rand::RngCore;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
@@ -94,4 +95,24 @@ impl<'a> TrailingWhitespaceMethod<'a> {
         }
     }
 
+    pub(crate) fn reveal_in_trailing_whitespace<Order, Type>(
+        &mut self,
+        stego_text_line: &mut String,
+        revealed_data: &mut BitVec<Order, Type>
+    )
+        where
+            Order: BitOrder,
+            Type: BitStore,
+    {
+        let bit = stego_text_line.graphemes(true)
+            .last()
+            .map(|cluster| cluster == self.whitespace_str)
+            .unwrap_or(false);
+
+        println!("trailing decoded '{}'", bit);
+        if bit {
+            stego_text_line.remove(stego_text_line.len() - 1);
+        }
+        revealed_data.push(bit);
+    }
 }

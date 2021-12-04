@@ -255,7 +255,7 @@ impl<'a> ExtendedLineMethod<'a> {
                     result,
                 ),
                 MethodActions::RandomASCIIWhitespace => {
-                    Ok(random_whitespace_submethod.conceal_in_random_ascii_whitespace(data, result))
+                    Ok(random_whitespace_submethod.conceal_in_random_whitespace(data, result))
                 }
                 MethodActions::TrailingASCIIWhitespace => {
                     Ok(trailing_whitespace_submethod.conceal_in_trailing_whitespace(data, result))
@@ -266,6 +266,43 @@ impl<'a> ExtendedLineMethod<'a> {
             }
         }
         Ok(EncoderResult::Success)
+    }
+
+    fn partial_reveal<'b, Order, Type>(
+        &mut self,
+        line: &str,
+        revealed_data: &mut BitVec<Order, Type>,
+    ) -> Result<()>
+    where
+        Order: BitOrder,
+        Type: BitStore,
+    {
+        let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
+        let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
+
+        let actions = get_variant_methods(&self.variant);
+        let mut current_line = line.to_string();
+
+        let mut gathered_bits: BitVec<Order, Type> = BitVec::with_capacity(3);
+        for action in actions.iter().rev() {
+            match action {
+                MethodActions::LineExtend => {
+                    self.reveal_in_extended_line(&mut current_line, &mut gathered_bits);
+                }
+                MethodActions::RandomASCIIWhitespace => {
+                    random_whitespace_submethod
+                        .reveal_in_random_whitespace(&mut current_line, &mut gathered_bits);
+                }
+                MethodActions::TrailingASCIIWhitespace => {
+                    trailing_whitespace_submethod
+                        .reveal_in_trailing_whitespace(&mut current_line, &mut gathered_bits);
+                }
+            };
+        }
+        gathered_bits.reverse();
+        revealed_data.append(&mut gathered_bits);
+
+        Ok(())
     }
 
     pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
@@ -312,6 +349,20 @@ impl<'a> ExtendedLineMethod<'a> {
         })
     }
 
+    pub(crate) fn reveal_in_extended_line<Order, Type>(
+        &mut self,
+        stego_text_line: &str,
+        revealed_data: &mut BitVec<Order, Type>,
+    ) where
+        Order: BitOrder,
+        Type: BitStore,
+    {
+        let bit = graphemes_length(stego_text_line) > self.pivot;
+        println!("extended decoded '{}'", bit);
+
+        revealed_data.push(bit)
+    }
+
     pub(crate) fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
     where
         I: Iterator<Item = &'b str>,
@@ -346,7 +397,6 @@ impl<'a> ExtendedLineMethod<'a> {
 
 impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
     type ConcealedOutput = String;
-    type RevealedOutput = BitVec;
 
     fn try_conceal<Order, Type>(
         &mut self,
@@ -384,8 +434,19 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
         Ok(result)
     }
 
-    fn try_reveal(&mut self, stego_text: &str) -> Result<Self::RevealedOutput> {
-        todo!()
+    fn try_reveal<Order, Type>(&mut self, stego_text: &str) -> Result<BitVec<Order, Type>>
+    where
+        Order: BitOrder,
+        Type: BitStore,
+    {
+        let mut revealed_data: BitVec<Order, Type> = BitVec::new();
+
+        for line in stego_text.split(NEWLINE_STR) {
+            println!("LINE: '{}'", line);
+            self.partial_reveal(line, &mut revealed_data);
+        }
+
+        Ok(revealed_data)
     }
 }
 
@@ -472,7 +533,7 @@ mod test {
 
     use bitvec::bitvec;
     use bitvec::order::Lsb0;
-    use bitvec::prelude::Msb0;
+    use bitvec::prelude::{BitVec, Msb0};
     use bitvec::view::{AsBits, BitView};
     use rand::{Rng, RngCore};
     use rand::rngs::mock::StepRng;
@@ -499,7 +560,11 @@ mod test {
     const TINY_TEXT: &str = "TINY COVER";
     const EMPTY_TEXT: &str = "";
 
-    fn get_method<'a>(pivot: usize, variant: Variant, rng: &Rc<RefCell<dyn RngCore>>) -> ExtendedLineMethod<'a> {
+    fn get_method<'a>(
+        pivot: usize,
+        variant: Variant,
+        rng: &Rc<RefCell<dyn RngCore>>,
+    ) -> ExtendedLineMethod<'a> {
         ExtendedLineMethod::builder()
             .with_pivot(pivot)
             .with_rng(rng)
@@ -677,6 +742,20 @@ mod test {
         let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_input.iter());
 
         assert_eq!(stego_text, Err(ConcealError::no_cover_words_left(8, 5)));
+        Ok(())
+    }
+
+    #[test]
+    fn reveals_from_one_lettered_text() -> Result<(), Box<dyn Error>> {
+        let stego_text = "a  b \nca b\nca  b\nca b\nca b\nc";
+        let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
+        let mut method = get_method(4, Variant::V1, &rng);
+
+        let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+
+        assert_eq!(data.len(), 18);
+        // Letter "a" - 01100001 then the rest is 0
+        assert_eq!(data, bitvec![Msb0, u8; 0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0]);
         Ok(())
     }
 }

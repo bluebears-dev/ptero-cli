@@ -8,6 +8,7 @@ use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::trace;
 use rand::{Rng, RngCore};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::encoder::EncoderResult;
 use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
@@ -96,7 +97,7 @@ impl<'a> RandomWhitespaceMethod<'a> {
         position
     }
 
-    pub(crate) fn conceal_in_random_ascii_whitespace<Order, Type>(
+    pub(crate) fn conceal_in_random_whitespace<Order, Type>(
         &mut self,
         data: &mut Iter<Order, Type>,
         cover: &mut String,
@@ -120,5 +121,31 @@ impl<'a> RandomWhitespaceMethod<'a> {
             }
             None => EncoderResult::NoDataLeft,
         }
+    }
+
+    pub(crate) fn reveal_in_random_whitespace<Order, Type>(
+        &mut self,
+        stego_text_line: &mut String,
+        revealed_data: &mut BitVec<Order, Type>
+    )
+        where
+            Order: BitOrder,
+            Type: BitStore,
+    {
+        let mut seen_whitespace = false;
+        let mut bit = false;
+        for (index, cluster) in stego_text_line.graphemes(true).enumerate() {
+            let is_methods_whitespace = cluster == self.whitespace_str;
+            if seen_whitespace && is_methods_whitespace {
+                trace!("Found two consecutive whitespaces, last being {}", cluster);
+                stego_text_line.remove(index);
+                bit = true;
+                break;
+            }
+            seen_whitespace = cluster.contains(char::is_whitespace);
+        }
+        println!("random decoded '{}'", bit);
+
+        revealed_data.push(bit);
     }
 }
