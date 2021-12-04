@@ -1,16 +1,18 @@
-use crate::encoder::EncoderResult;
-use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
-use crate::method::SteganographyMethod;
+use std::fmt::{Display, Formatter};
+use std::iter::Peekable;
+use std::ops::DerefMut;
+use std::sync::mpsc::Sender;
+
+use bitvec::prelude::*;
+use bitvec::slice::Iter;
 use log::{debug, trace};
 use rand::{Rng, RngCore};
 use snafu::Snafu;
-use std::fmt::{Display, Formatter};
-use std::iter::Peekable;
-use std::ops::{DerefMut};
-use std::sync::mpsc::Sender;
-use bitvec::prelude::*;
-use bitvec::slice::Iter;
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::encoder::EncoderResult;
+use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
+use crate::method::SteganographyMethod;
 
 const ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
@@ -156,18 +158,18 @@ pub enum ConcealError {
     /// Used pivot was not suitable for selected cover text.
     /// Cover text has words that are longer the pivot and the method cannot construct a feasible line.
     #[snafu(display(
-    "Pivot '{}' is smaller then the longest word in cover: '{}'",
-    pivot,
-    word
+        "Pivot '{}' is smaller then the longest word in cover: '{}'",
+        pivot,
+        word
     ))]
     PivotTooSmall { word: String, pivot: usize },
     /// Used cover text can't hide selected amount of data.
     /// Can happen at various stages of concealing.
     #[snafu(display(
-    "{}. '{}' bytes left unprocessed while using '{}' as a pivot",
-    reason,
-    remaining_data_size,
-    pivot
+        "{}. '{}' bytes left unprocessed while using '{}' as a pivot",
+        reason,
+        remaining_data_size,
+        pivot
     ))]
     CoverTextTooSmall {
         reason: CoverTooSmallErrorReason,
@@ -266,10 +268,10 @@ impl<'a> ExtendedLineMethod<'a> {
         data: &mut Iter<Order, Type>,
         result: &mut String,
     ) -> Result<EncoderResult>
-        where
-            IteratorType: Iterator<Item=&'b str>,
-            Order: BitOrder,
-            Type: BitStore
+    where
+        IteratorType: Iterator<Item = &'b str>,
+        Order: BitOrder,
+        Type: BitStore,
     {
         let pivot_line = self.construct_pivot_line(word_iterator);
         result.push_str(&pivot_line);
@@ -312,10 +314,10 @@ impl<'a> ExtendedLineMethod<'a> {
         data: &mut Iter<Order, Type>,
         result: &mut String,
     ) -> Result<EncoderResult>
-        where
-            IteratorType: Iterator<Item=&'b str>,
-            Order: BitOrder,
-            Type: BitStore
+    where
+        IteratorType: Iterator<Item = &'b str>,
+        Order: BitOrder,
+        Type: BitStore,
     {
         Ok(match data.next().as_deref() {
             Some(true) => {
@@ -354,7 +356,9 @@ impl<'a> ExtendedLineMethod<'a> {
         data: &mut Iter<Order, Type>,
         cover: &mut String,
     ) -> Result<EncoderResult>
-        where Order: BitOrder, Type: BitStore
+    where
+        Order: BitOrder,
+        Type: BitStore,
     {
         Ok(match data.next().as_deref() {
             Some(true) => {
@@ -378,7 +382,9 @@ impl<'a> ExtendedLineMethod<'a> {
         data: &mut Iter<Order, Type>,
         cover: &mut String,
     ) -> Result<EncoderResult>
-        where Order: BitOrder, Type: BitStore
+    where
+        Order: BitOrder,
+        Type: BitStore,
     {
         Ok(match data.next().as_deref() {
             Some(true) => {
@@ -395,8 +401,8 @@ impl<'a> ExtendedLineMethod<'a> {
     }
 
     fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
-        where
-            I: Iterator<Item=&'b str>,
+    where
+        I: Iterator<Item = &'b str>,
     {
         let mut current_line_length = 0;
         let mut result = String::new();
@@ -453,9 +459,14 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
     type ConcealedOutput = String;
     type RevealedOutput = BitVec;
 
-    fn try_conceal<Order, Type>(&mut self, cover: &str, data: &mut Iter<Order, Type>) -> Result<Self::ConcealedOutput>
-        where Order: BitOrder,
-              Type: BitStore
+    fn try_conceal<Order, Type>(
+        &mut self,
+        cover: &str,
+        data: &mut Iter<Order, Type>,
+    ) -> Result<Self::ConcealedOutput>
+    where
+        Order: BitOrder,
+        Type: BitStore,
     {
         self.verify_pivot(cover)?;
 
@@ -467,7 +478,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
             .peekable();
 
         while let EncoderResult::Success =
-        self.partial_conceal(&mut word_iterator, data, &mut result)?
+            self.partial_conceal(&mut word_iterator, data, &mut result)?
         {
             result.push_str(NEWLINE_STR);
         }
@@ -491,17 +502,19 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
 
 #[allow(unused_imports)]
 mod test {
-    use crate::binary::BitIterator;
-    use crate::method::extended_line_method::Variant;
-    use crate::method::extended_line_method::{ConcealError, ExtendedLineMethod};
-    use crate::method::SteganographyMethod;
-    use rand::rngs::mock::StepRng;
-    use rand::Rng;
     use std::error::Error;
+
     use bitvec::bitvec;
     use bitvec::order::Lsb0;
     use bitvec::prelude::Msb0;
     use bitvec::view::{AsBits, BitView};
+    use rand::Rng;
+    use rand::rngs::mock::StepRng;
+
+    use crate::binary::BitIterator;
+    use crate::method::extended_line_method::{ConcealError, ExtendedLineMethod};
+    use crate::method::extended_line_method::Variant;
+    use crate::method::SteganographyMethod;
 
     const SINGLE_CHAR_TEXT: &str = "a b ca b ca b ca b ca b c";
     const WITH_WORDS_TEXT: &str =
@@ -533,7 +546,8 @@ mod test {
         let data_input = "a";
         let mut method = get_method(4, Variant::V1);
 
-        let stego_text = method.try_conceal(SINGLE_CHAR_TEXT, &mut data_input.as_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(SINGLE_CHAR_TEXT, &mut data_input.as_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "a  b \nca b\nca  b\nca b\nca b\nc");
         Ok(())
@@ -555,7 +569,8 @@ mod test {
         let data_input: u8 = 255;
         let mut method = get_method(10, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill");
         Ok(())
@@ -566,7 +581,10 @@ mod test {
         let data_input: u8 = 255;
         let mut method = get_method(10, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_OTHER_WHITESPACE_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text = method.try_conceal(
+            WITH_OTHER_WHITESPACE_TEXT,
+            &mut data_input.view_bits::<Msb0>().iter(),
+        )?;
 
         assert_eq!(stego_text, "A  little panda \nhas  fallen from \na  tree. The\npanda went\nrolling\ndown the\nhill");
         Ok(())
@@ -577,7 +595,8 @@ mod test {
         let data_input: u8 = 255;
         let mut method = get_method(10, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_EMOJI_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(WITH_EMOJI_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(
             stego_text,
@@ -591,7 +610,8 @@ mod test {
         let data_input: u8 = 255;
         let mut method = get_method(15, Variant::V1);
 
-        let stego_text = method.try_conceal(HTML_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(HTML_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "<div>  <button style=\" \nbackground:  red;\">Click \nme</button>  <div/>\n<footer> This\nis the end\n</footer>");
         Ok(())
@@ -602,7 +622,8 @@ mod test {
         let data_input: Vec<u8> = vec![0b10101011];
         let mut method = get_method(8, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A little panda \nhas \nfallen  from\na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -613,7 +634,8 @@ mod test {
         let data_input: Vec<u8> = vec![0b10101011];
         let mut method = get_method(8, Variant::V2);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little panda\nhas \nfallen from \na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -624,7 +646,8 @@ mod test {
         let data_input: Vec<u8> = vec![0b10101011];
         let mut method = get_method(8, Variant::V3);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A  little \npanda has\nfallen  from\na tree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
@@ -635,7 +658,8 @@ mod test {
         let data_input: Vec<u8> = vec![0b0];
         let mut method = get_method(8, Variant::V1);
 
-        let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
+        let stego_text =
+            method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
         assert_eq!(stego_text, "A little\npanda\nhas\nfallen\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill");
         Ok(())
