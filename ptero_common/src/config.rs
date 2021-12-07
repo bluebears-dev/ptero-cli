@@ -12,7 +12,7 @@ use crate::observer::EventNotifier;
 pub struct CommonMethodConfig {
     /// Observer that recognizes [`MethodProgressStatus`].
     /// This can be used to track the progress of hiding/revealing.
-    #[builder(private, setter(into), default)]
+    #[builder(setter(into, prefix = "with"), default)]
     pub notifier: EventNotifier<MethodProgressStatus>,
     /// Random number generator used by methods.
     /// By default populated with [`StdRng::from_entropy`].

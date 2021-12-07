@@ -43,7 +43,11 @@ impl TrailingWhitespaceMethodBuilder {
         self
     }
 
-impl TrailingWhitespaceMethodBuilder {
+    pub fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
+        self.config_builder = self.config_builder.with_notifier(notifier);
+        self
+    }
+
     /// Set custom RNG for method.
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);

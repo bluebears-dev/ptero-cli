@@ -2,6 +2,7 @@ use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::ops::{Deref, DerefMut};
 use std::rc::{Rc, Weak};
+use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 use bitvec::prelude::*;
@@ -12,6 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult};
+use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::{ConcealError, Result};
 
@@ -36,6 +38,11 @@ impl RandomWhitespaceMethodBuilder {
     /// Set custom RNG for method.
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
+        self
+    }
+
+    pub fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
+        self.config_builder = self.config_builder.with_notifier(notifier);
         self
     }
 
@@ -111,10 +118,12 @@ impl RandomWhitespaceMethod {
 
                 trace!("Putting space at position {}", position);
                 cover.insert_str(position, &String::from(self.whitespace_str));
+                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
                 MethodResult::Success
             }
             Some(false) => {
                 trace!("Skipping double whitespace");
+                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
                 MethodResult::Success
             }
             None => MethodResult::NoDataLeft,

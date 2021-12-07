@@ -327,12 +327,14 @@ impl ExtendedLineMethod {
     fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod {
         RandomWhitespaceMethod::builder()
             .with_rng(&self.config.rng.upgrade().unwrap())
+            .with_notifier(self.config.notifier.clone())
             .build()
     }
 
     fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod {
         TrailingWhitespaceMethod::builder()
             .with_rng(&self.config.rng.upgrade().unwrap())
+            .with_notifier(self.config.notifier.clone())
             .build()
     }
 
@@ -359,7 +361,7 @@ impl ExtendedLineMethod {
         }
 
         let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
-        let trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
+        let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
 
         for action in get_variant_methods(&self.variant) {
             let method_result = match action {
@@ -380,8 +382,6 @@ impl ExtendedLineMethod {
             if let MethodResult::NoDataLeft = method_result? {
                 return Ok(MethodResult::NoDataLeft);
             }
-
-            self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
         }
         Ok(MethodResult::Success)
     }
@@ -418,7 +418,7 @@ impl ExtendedLineMethod {
     }
 
     pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
-        &self,
+        &mut self,
         pivot_line_length: usize,
         word_iter: &mut Peekable<IteratorType>,
         data: &mut Iter<Order, Type>,
@@ -451,10 +451,12 @@ impl ExtendedLineMethod {
                 trace!("Extending line with '{}'", &next_word);
                 result.push_str(ASCII_DELIMITER);
                 result.push_str(next_word);
+                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
                 MethodResult::Success
             }
             Some(false) => {
                 trace!("Leaving line as-is");
+                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
                 MethodResult::Success
             }
             None => MethodResult::NoDataLeft,

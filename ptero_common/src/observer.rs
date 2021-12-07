@@ -62,6 +62,7 @@ pub trait Observable {
     fn subscribe(&mut self, listener: Arc<RefCell<dyn Observer<Self::Event>>>);
 }
 
+#[derive(Clone)]
 pub struct EventNotifier<Ev> {
     subscribers: Vec<Weak<RefCell<dyn Observer<Ev>>>>,
 }
