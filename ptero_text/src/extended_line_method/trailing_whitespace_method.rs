@@ -85,7 +85,6 @@ impl TrailingWhitespaceMethod {
         index << (bitrate - next_bits.len())
     }
 
-
     pub(crate) fn conceal_in_trailing_whitespace<Order, Type>(
         &mut self,
         data: &mut Iter<Order, Type>,
@@ -123,7 +122,9 @@ impl TrailingWhitespaceMethod {
         if next_n_bits.len() < bitrate {
             MethodResult::NoDataLeft
         } else {
-            self.config.notifier.notify(&MethodProgressStatus::DataWritten(bitrate as u64));
+            self.config
+                .notifier
+                .notify(&MethodProgressStatus::DataWritten(bitrate as u64));
             MethodResult::Success
         }
     }
@@ -141,8 +142,7 @@ impl TrailingWhitespaceMethod {
 
             println!(
                 "Found {:?} at the end of the line, decoded into {:b}",
-                &last_char,
-                decoded_number
+                &last_char, decoded_number
             );
 
             let data: &BitSlice<Msb0, usize> = BitSlice::from_element(&decoded_number);

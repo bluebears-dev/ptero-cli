@@ -66,6 +66,8 @@ pub struct RandomWhitespaceMethod {
 }
 
 impl RandomWhitespaceMethod {
+    const CYCLE_BITRATE: u64 = 1;
+
     pub fn builder() -> RandomWhitespaceMethodBuilder {
         RandomWhitespaceMethodBuilder::default()
     }
@@ -104,26 +106,31 @@ impl RandomWhitespaceMethod {
     {
         Ok(match data.next().as_deref() {
             Some(true) => {
-                let last_newline_index = cover.rfind(NEWLINE_STR)
-                    .map(|index| index + 1)
-                    .unwrap_or(0);
+                let last_newline_index =
+                    cover.rfind(NEWLINE_STR).map(|index| index + 1).unwrap_or(0);
 
                 let position = self.find_approx_whitespace_position(cover, last_newline_index);
 
                 if position == cover.len() {
-                    return Err(ConcealError::not_enough_words(
-                        &cover[last_newline_index..],
-                    ));
+                    return Err(ConcealError::not_enough_words(&cover[last_newline_index..]));
                 }
 
                 trace!("Putting space at position {}", position);
                 cover.insert_str(position, &String::from(self.whitespace_str));
-                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
+
+                self.config
+                    .notifier
+                    .notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
+
                 MethodResult::Success
             }
             Some(false) => {
                 trace!("Skipping double whitespace");
-                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
+
+                self.config
+                    .notifier
+                    .notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
+
                 MethodResult::Success
             }
             None => MethodResult::NoDataLeft,

@@ -122,7 +122,6 @@ pub const THREE_BIT_CHARACTER_SET: [char; 7] = [
 /// Set providing pre-defined characters for 2-bit encoding capacity.
 pub const TWO_BIT_CHARACTER_SET: [char; 3] = ['\u{0020}', '\u{2000}', '\u{2001}'];
 
-
 /// Set providing pre-defined characters for 1-bit encoding capacity.
 ///
 /// This is the base Extended Line algorithm behaviour.

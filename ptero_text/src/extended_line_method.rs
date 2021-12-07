@@ -141,9 +141,9 @@ const ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 const DEFAULT_PIVOT: usize = 15;
 
+pub mod character_sets;
 mod random_whitespace_method;
 mod trailing_whitespace_method;
-pub mod character_sets;
 
 #[derive(Debug)]
 pub(crate) enum MethodActions {
@@ -281,6 +281,8 @@ pub struct ExtendedLineMethod {
 }
 
 impl ExtendedLineMethod {
+    const LINE_EXTENSION_CYCLE_BITRATE: u64 = 1;
+
     /// Returns a builder for [`ExtendedLineMethod`] algorithm.
     ///
     /// # Examples
@@ -324,18 +326,103 @@ impl ExtendedLineMethod {
         }
     }
 
-    fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod {
-        RandomWhitespaceMethod::builder()
-            .with_rng(&self.config.rng.upgrade().unwrap())
-            .with_notifier(self.config.notifier.clone())
-            .build()
+    pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
+        &mut self,
+        pivot_line_length: usize,
+        word_iter: &mut Peekable<IteratorType>,
+        data: &mut Iter<Order, Type>,
+        result: &mut String,
+    ) -> Result<MethodResult>
+        where
+            IteratorType: Iterator<Item = &'b str>,
+            Order: BitOrder,
+            Type: BitStore,
+    {
+        Ok(match data.next().as_deref() {
+            Some(true) => {
+                let next_word = word_iter.next().ok_or_else(|| {
+                    let remaining_data_size = data.count();
+                    ConcealError::no_cover_words_left(remaining_data_size, self.pivot)
+                })?;
+
+                let extended_line_length = pivot_line_length
+                    + graphemes_length(next_word)
+                    + graphemes_length(ASCII_DELIMITER);
+
+                if extended_line_length <= self.pivot {
+                    let remaining_data_size = data.count();
+                    return Err(ConcealError::line_too_short(
+                        remaining_data_size,
+                        self.pivot,
+                    ));
+                }
+                trace!("Extending line with '{}'", &next_word);
+                result.push_str(ASCII_DELIMITER);
+                result.push_str(next_word);
+
+                self.config
+                    .notifier
+                    .notify(&MethodProgressStatus::DataWritten(
+                        Self::LINE_EXTENSION_CYCLE_BITRATE,
+                    ));
+
+                MethodResult::Success
+            }
+            Some(false) => {
+                trace!("Leaving line as-is");
+                self.config
+                    .notifier
+                    .notify(&MethodProgressStatus::DataWritten(
+                        Self::LINE_EXTENSION_CYCLE_BITRATE,
+                    ));
+                MethodResult::Success
+            }
+            None => MethodResult::NoDataLeft,
+        })
     }
 
-    fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod {
-        TrailingWhitespaceMethod::builder()
-            .with_rng(&self.config.rng.upgrade().unwrap())
-            .with_notifier(self.config.notifier.clone())
-            .build()
+    pub(crate) fn reveal_in_extended_line<Order, Type>(
+        &mut self,
+        stego_text_line: &str,
+        revealed_data: &mut BitVec<Order, Type>,
+    ) where
+        Order: BitOrder,
+        Type: BitStore,
+    {
+        let bit = graphemes_length(stego_text_line) > self.pivot;
+        trace!("Found extended line: '{}'", bit);
+        revealed_data.push(bit)
+    }
+
+    pub(crate) fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
+        where
+            I: Iterator<Item = &'b str>,
+    {
+        let mut current_line_length = 0;
+        let mut result = String::new();
+
+        while let Some(next_word) = word_iter.peek() {
+            let line_appendix = if current_line_length > 0 {
+                [ASCII_DELIMITER, next_word].join("")
+            } else {
+                next_word.to_string()
+            };
+
+            if current_line_length + graphemes_length(&line_appendix) > self.pivot {
+                break;
+            }
+
+            current_line_length += graphemes_length(&line_appendix);
+            result.push_str(&line_appendix);
+
+            word_iter.next();
+        }
+        trace!(
+            "Constructed line of length: '{}' while '{}' is the pivot",
+            current_line_length,
+            self.pivot
+        );
+        result
     }
 
     fn partial_conceal<'b, IteratorType, Order, Type>(
@@ -417,94 +504,18 @@ impl ExtendedLineMethod {
         revealed_data.append(&mut gathered_bits);
     }
 
-    pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
-        &mut self,
-        pivot_line_length: usize,
-        word_iter: &mut Peekable<IteratorType>,
-        data: &mut Iter<Order, Type>,
-        result: &mut String,
-    ) -> Result<MethodResult>
-    where
-        IteratorType: Iterator<Item = &'b str>,
-        Order: BitOrder,
-        Type: BitStore,
-    {
-        Ok(match data.next().as_deref() {
-            Some(true) => {
-                let next_word = word_iter.next().ok_or_else(|| {
-                    let remaining_data_size = data.count();
-                    ConcealError::no_cover_words_left(remaining_data_size, self.pivot)
-                })?;
-
-                let extended_line_length = pivot_line_length
-                    + graphemes_length(next_word)
-                    + graphemes_length(ASCII_DELIMITER);
-
-                if extended_line_length <= self.pivot {
-                    let remaining_data_size = data.count();
-                    return Err(ConcealError::line_too_short(
-                        remaining_data_size,
-                        self.pivot,
-                    ));
-                }
-
-                trace!("Extending line with '{}'", &next_word);
-                result.push_str(ASCII_DELIMITER);
-                result.push_str(next_word);
-                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
-                MethodResult::Success
-            }
-            Some(false) => {
-                trace!("Leaving line as-is");
-                self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
-                MethodResult::Success
-            }
-            None => MethodResult::NoDataLeft,
-        })
+    fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod {
+        TrailingWhitespaceMethod::builder()
+            .with_rng(&self.config.rng.upgrade().unwrap())
+            .with_notifier(self.config.notifier.clone())
+            .build()
     }
 
-    pub(crate) fn reveal_in_extended_line<Order, Type>(
-        &mut self,
-        stego_text_line: &str,
-        revealed_data: &mut BitVec<Order, Type>,
-    ) where
-        Order: BitOrder,
-        Type: BitStore,
-    {
-        let bit = graphemes_length(stego_text_line) > self.pivot;
-        trace!("Found extended line: '{}'", bit);
-        revealed_data.push(bit)
-    }
-
-    pub(crate) fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
-    where
-        I: Iterator<Item = &'b str>,
-    {
-        let mut current_line_length = 0;
-        let mut result = String::new();
-
-        while let Some(next_word) = word_iter.peek() {
-            let line_appendix = if current_line_length > 0 {
-                [ASCII_DELIMITER, next_word].join("")
-            } else {
-                next_word.to_string()
-            };
-
-            if current_line_length + graphemes_length(&line_appendix) > self.pivot {
-                break;
-            }
-
-            current_line_length += graphemes_length(&line_appendix);
-            result.push_str(&line_appendix);
-
-            word_iter.next();
-        }
-        trace!(
-            "Constructed line of length: '{}' while '{}' is the pivot",
-            current_line_length,
-            self.pivot
-        );
-        result
+    fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod {
+        RandomWhitespaceMethod::builder()
+            .with_rng(&self.config.rng.upgrade().unwrap())
+            .with_notifier(self.config.notifier.clone())
+            .build()
     }
 }
 
