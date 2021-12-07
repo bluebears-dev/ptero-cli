@@ -15,7 +15,7 @@ use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
 
-pub struct TrailingWhitespaceMethodBuilder {
+pub(crate) struct TrailingWhitespaceMethodBuilder {
     config_builder: CommonMethodConfigBuilder,
     character_set: Box<dyn GetCharacterSet>,
 }
@@ -35,7 +35,7 @@ impl TrailingWhitespaceMethodBuilder {
     }
 
     /// Sets custom character set. See [`GetCharacterSet`] and [`CharacterSet`] for more info.
-    pub fn with_character_set<T>(mut self, character_set: T) -> Self
+    pub(crate) fn with_character_set<T>(mut self, character_set: T) -> Self
     where
         T: GetCharacterSet + 'static,
     {
@@ -43,18 +43,18 @@ impl TrailingWhitespaceMethodBuilder {
         self
     }
 
-    pub fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
+    pub(crate) fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
         self.config_builder = self.config_builder.with_notifier(notifier);
         self
     }
 
     /// Set custom RNG for method.
-    pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
+    pub(crate) fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
         self
     }
 
-    pub fn build(self) -> TrailingWhitespaceMethod {
+    pub(crate) fn build(self) -> TrailingWhitespaceMethod {
         TrailingWhitespaceMethod {
             config: self.config_builder.build().unwrap(),
             character_set: self.character_set,
@@ -62,13 +62,13 @@ impl TrailingWhitespaceMethodBuilder {
     }
 }
 
-pub struct TrailingWhitespaceMethod {
+pub(crate) struct TrailingWhitespaceMethod {
     config: CommonMethodConfig,
     character_set: Box<dyn GetCharacterSet>,
 }
 
 impl TrailingWhitespaceMethod {
-    pub fn builder() -> TrailingWhitespaceMethodBuilder {
+    pub(crate) fn builder() -> TrailingWhitespaceMethodBuilder {
         TrailingWhitespaceMethodBuilder::default()
     }
 

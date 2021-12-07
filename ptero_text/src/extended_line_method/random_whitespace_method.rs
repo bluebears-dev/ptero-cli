@@ -20,7 +20,7 @@ use crate::extended_line_method::{ConcealError, Result};
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 
-pub struct RandomWhitespaceMethodBuilder {
+pub(crate) struct RandomWhitespaceMethodBuilder {
     config_builder: CommonMethodConfigBuilder,
     whitespace_str: &'static str,
 }
@@ -36,23 +36,23 @@ impl Default for RandomWhitespaceMethodBuilder {
 
 impl RandomWhitespaceMethodBuilder {
     /// Set custom RNG for method.
-    pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
+    pub(crate) fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
         self
     }
 
-    pub fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
+    pub(crate) fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
         self.config_builder = self.config_builder.with_notifier(notifier);
         self
     }
 
     /// Set custom whitespace delimiter
-    pub fn with_custom_whitespace_str(mut self, whitespace_str: &'static str) -> Self {
+    pub(crate) fn with_custom_whitespace_str(mut self, whitespace_str: &'static str) -> Self {
         self.whitespace_str = whitespace_str;
         self
     }
 
-    pub fn build(self) -> RandomWhitespaceMethod {
+    pub(crate) fn build(self) -> RandomWhitespaceMethod {
         RandomWhitespaceMethod {
             config: self.config_builder.build().unwrap(),
             whitespace_str: self.whitespace_str,
@@ -60,7 +60,7 @@ impl RandomWhitespaceMethodBuilder {
     }
 }
 
-pub struct RandomWhitespaceMethod {
+pub(crate) struct RandomWhitespaceMethod {
     config: CommonMethodConfig,
     whitespace_str: &'static str,
 }
@@ -68,7 +68,7 @@ pub struct RandomWhitespaceMethod {
 impl RandomWhitespaceMethod {
     const CYCLE_BITRATE: u64 = 1;
 
-    pub fn builder() -> RandomWhitespaceMethodBuilder {
+    pub(crate) fn builder() -> RandomWhitespaceMethodBuilder {
         RandomWhitespaceMethodBuilder::default()
     }
 

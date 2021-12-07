@@ -134,6 +134,8 @@ use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
 use ptero_common::observer::{Observable, Observer};
 
+use crate::extended_line_method::line_extend_method::{construct_pivot_line, LineExtendMethod, verify_pivot};
+
 use self::random_whitespace_method::RandomWhitespaceMethod;
 use self::trailing_whitespace_method::TrailingWhitespaceMethod;
 
@@ -142,6 +144,7 @@ const NEWLINE_STR: &str = "\n";
 const DEFAULT_PIVOT: usize = 15;
 
 pub mod character_sets;
+mod line_extend_method;
 mod random_whitespace_method;
 mod trailing_whitespace_method;
 
@@ -271,7 +274,6 @@ fn graphemes_length(text: &str) -> usize {
 }
 
 pub type Result<Success> = std::result::Result<Success, ConcealError>;
-pub type VerificationResult = std::result::Result<(), ConcealError>;
 
 /// The main structure describing internal state for the Extended Line method.
 pub struct ExtendedLineMethod {
@@ -310,121 +312,6 @@ impl ExtendedLineMethod {
         self.config.notifier.subscribe(subscriber);
     }
 
-    pub fn verify_pivot(&self, cover: &str) -> VerificationResult {
-        debug!("Checking if pivot is feasible for provided cover");
-
-        let words_longer_than_pivot = cover
-            .split_whitespace()
-            .filter(|word| word.len() > self.pivot)
-            .collect::<Vec<&str>>();
-
-        if !words_longer_than_pivot.is_empty() {
-            let word = words_longer_than_pivot[0];
-            Err(ConcealError::pivot_too_small(word.to_string(), self.pivot))
-        } else {
-            Ok(())
-        }
-    }
-
-    pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
-        &mut self,
-        pivot_line_length: usize,
-        word_iter: &mut Peekable<IteratorType>,
-        data: &mut Iter<Order, Type>,
-        result: &mut String,
-    ) -> Result<MethodResult>
-        where
-            IteratorType: Iterator<Item = &'b str>,
-            Order: BitOrder,
-            Type: BitStore,
-    {
-        Ok(match data.next().as_deref() {
-            Some(true) => {
-                let next_word = word_iter.next().ok_or_else(|| {
-                    let remaining_data_size = data.count();
-                    ConcealError::no_cover_words_left(remaining_data_size, self.pivot)
-                })?;
-
-                let extended_line_length = pivot_line_length
-                    + graphemes_length(next_word)
-                    + graphemes_length(ASCII_DELIMITER);
-
-                if extended_line_length <= self.pivot {
-                    let remaining_data_size = data.count();
-                    return Err(ConcealError::line_too_short(
-                        remaining_data_size,
-                        self.pivot,
-                    ));
-                }
-                trace!("Extending line with '{}'", &next_word);
-                result.push_str(ASCII_DELIMITER);
-                result.push_str(next_word);
-
-                self.config
-                    .notifier
-                    .notify(&MethodProgressStatus::DataWritten(
-                        Self::LINE_EXTENSION_CYCLE_BITRATE,
-                    ));
-
-                MethodResult::Success
-            }
-            Some(false) => {
-                trace!("Leaving line as-is");
-                self.config
-                    .notifier
-                    .notify(&MethodProgressStatus::DataWritten(
-                        Self::LINE_EXTENSION_CYCLE_BITRATE,
-                    ));
-                MethodResult::Success
-            }
-            None => MethodResult::NoDataLeft,
-        })
-    }
-
-    pub(crate) fn reveal_in_extended_line<Order, Type>(
-        &mut self,
-        stego_text_line: &str,
-        revealed_data: &mut BitVec<Order, Type>,
-    ) where
-        Order: BitOrder,
-        Type: BitStore,
-    {
-        let bit = graphemes_length(stego_text_line) > self.pivot;
-        trace!("Found extended line: '{}'", bit);
-        revealed_data.push(bit)
-    }
-
-    pub(crate) fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
-        where
-            I: Iterator<Item = &'b str>,
-    {
-        let mut current_line_length = 0;
-        let mut result = String::new();
-
-        while let Some(next_word) = word_iter.peek() {
-            let line_appendix = if current_line_length > 0 {
-                [ASCII_DELIMITER, next_word].join("")
-            } else {
-                next_word.to_string()
-            };
-
-            if current_line_length + graphemes_length(&line_appendix) > self.pivot {
-                break;
-            }
-
-            current_line_length += graphemes_length(&line_appendix);
-            result.push_str(&line_appendix);
-
-            word_iter.next();
-        }
-        trace!(
-            "Constructed line of length: '{}' while '{}' is the pivot",
-            current_line_length,
-            self.pivot
-        );
-        result
-    }
-
     fn partial_conceal<'b, IteratorType, Order, Type>(
         &mut self,
         word_iterator: &mut Peekable<IteratorType>,
@@ -436,7 +323,11 @@ impl ExtendedLineMethod {
         Order: BitOrder,
         Type: BitStore,
     {
-        let pivot_line = self.construct_pivot_line(word_iterator);
+        let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
+        let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
+        let mut line_extend_submethod = self.build_line_extend_submethod();
+
+        let pivot_line = construct_pivot_line(self.pivot, word_iterator);
         result.push_str(&pivot_line);
 
         if pivot_line.is_empty() {
@@ -447,12 +338,9 @@ impl ExtendedLineMethod {
             ));
         }
 
-        let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
-        let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
-
         for action in get_variant_methods(&self.variant) {
             let method_result = match action {
-                MethodActions::LineExtend => self.conceal_in_extended_line(
+                MethodActions::LineExtend => line_extend_submethod.conceal_in_extended_line(
                     graphemes_length(&pivot_line),
                     word_iterator,
                     data,
@@ -480,6 +368,7 @@ impl ExtendedLineMethod {
     {
         let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
         let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
+        let mut line_extend_submethod = self.build_line_extend_submethod();
 
         let actions = get_variant_methods(&self.variant);
         let mut current_line = line.to_string();
@@ -488,7 +377,8 @@ impl ExtendedLineMethod {
         for action in actions.iter().rev() {
             match action {
                 MethodActions::LineExtend => {
-                    self.reveal_in_extended_line(&current_line, &mut gathered_bits);
+                    line_extend_submethod
+                        .reveal_in_extended_line(&current_line, &mut gathered_bits);
                 }
                 MethodActions::RandomASCIIWhitespace => {
                     random_whitespace_submethod
@@ -517,6 +407,13 @@ impl ExtendedLineMethod {
             .with_notifier(self.config.notifier.clone())
             .build()
     }
+    fn build_line_extend_submethod(&self) -> LineExtendMethod {
+        LineExtendMethod::builder()
+            .with_rng(&self.config.rng.upgrade().unwrap())
+            .with_notifier(self.config.notifier.clone())
+            .with_pivot(self.pivot)
+            .build()
+    }
 }
 
 impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
@@ -531,7 +428,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         Order: BitOrder,
         Type: BitStore,
     {
-        self.verify_pivot(cover)?;
+        verify_pivot(self.pivot, cover)?;
 
         let mut result = String::with_capacity(cover.len());
 
@@ -547,7 +444,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         }
 
         loop {
-            let line = self.construct_pivot_line(&mut word_iterator);
+            let line = construct_pivot_line(self.pivot, &mut word_iterator);
             if line.is_empty() {
                 break;
             }
