@@ -125,7 +125,6 @@ use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
-use log::{debug, trace};
 use rand::RngCore;
 use snafu::Snafu;
 use unicode_segmentation::UnicodeSegmentation;
@@ -139,7 +138,6 @@ use crate::extended_line_method::line_extend_method::{construct_pivot_line, Line
 use self::random_whitespace_method::RandomWhitespaceMethod;
 use self::trailing_whitespace_method::TrailingWhitespaceMethod;
 
-const ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 const DEFAULT_PIVOT: usize = 15;
 
@@ -283,8 +281,6 @@ pub struct ExtendedLineMethod {
 }
 
 impl ExtendedLineMethod {
-    const LINE_EXTENSION_CYCLE_BITRATE: u64 = 1;
-
     /// Returns a builder for [`ExtendedLineMethod`] algorithm.
     ///
     /// # Examples

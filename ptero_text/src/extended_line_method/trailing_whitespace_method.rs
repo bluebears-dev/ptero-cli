@@ -1,17 +1,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
-use std::sync::mpsc::Sender;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::trace;
 use rand::RngCore;
-use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::{EventNotifier, Observable, Observer};
+use ptero_common::observer::EventNotifier;
 
 use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
 
@@ -140,7 +137,7 @@ impl TrailingWhitespaceMethod {
         if let Some(last_char) = stego_text_line.chars().last() {
             let decoded_number = self.character_set.character_to_bits(&last_char);
 
-            println!(
+            trace!(
                 "Found {:?} at the end of the line, decoded into {:b}",
                 &last_char, decoded_number
             );
@@ -153,7 +150,7 @@ impl TrailingWhitespaceMethod {
                 stego_text_line.remove(stego_text_line.len() - 1);
             }
         } else {
-            println!("Empty line received, skipping");
+            trace!("Empty line received, skipping");
         }
     }
 }

@@ -1,9 +1,5 @@
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::ops::{Deref, DerefMut};
-use std::rc::{Rc, Weak};
-use std::sync::Arc;
-use std::sync::mpsc::Sender;
+use std::rc::Rc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
@@ -13,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::{EventNotifier, Observable, Observer};
+use ptero_common::observer::EventNotifier;
 
 use crate::extended_line_method::{ConcealError, Result};
 
