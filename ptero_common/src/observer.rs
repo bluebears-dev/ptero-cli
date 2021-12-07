@@ -18,7 +18,7 @@
 //!     pub value: usize
 //! }
 //!
-//! impl Counter {
+//! impl Observer<Event> for Counter {
 //!     fn on_notify(&mut self, event: &Event) {
 //!         match event {
 //!             Event::Inc{ step } => { self.value += step; }
@@ -30,17 +30,11 @@
 //!     }
 //! }
 //!
-//! impl Observer<Event> for Counter {
-//!     fn notify(&mut self, event: &Event) {
-//!         self.on_notify(event);
-//!     }
-//! }
-//!
 //! // Use [`EventNotifier`] to notify all subscribers to events
 //! let mut event_notifier: EventNotifier<Event> = EventNotifier::default();
 //! // You have to wrap observers into [`Arc`]
-//! let mut counter_one = Arc::new(RefCell::new(Counter { value: 0 }));
-//! let mut counter_two = Arc::new(RefCell::new(Counter { value: 4 }));
+//! let counter_one = Arc::new(RefCell::new(Counter { value: 0 }));
+//! let counter_two = Arc::new(RefCell::new(Counter { value: 4 }));
 //!
 //! event_notifier.subscribe(counter_one.clone());
 //! event_notifier.subscribe(counter_two.clone());
@@ -59,7 +53,7 @@ use std::sync::{Arc, Weak};
 use log::warn;
 
 pub trait Observer<Ev> {
-    fn notify(&mut self, event: &Ev);
+    fn on_notify(&mut self, event: &Ev);
 }
 
 pub trait Observable {
@@ -77,13 +71,16 @@ impl<Ev> EventNotifier<Ev> {
         EventNotifier { subscribers: Vec::new() }
     }
 
+    /// Sends an event to all valid subscribers.
+    ///
+    /// It [`Arc`] reference is not valid, proceeds to clean-up invalid subscribers.
     pub fn notify(&mut self, event: &Ev) {
         let mut cleanup_needed = false;
 
         for sub in self.subscribers.iter() {
             if let Some(subscriber_arc) = sub.upgrade() {
                 let mut listener = subscriber_arc.borrow_mut();
-                listener.notify(event);
+                listener.on_notify(event);
             } else {
                 warn!("Stale subscriber detected, clean-up needed");
                 cleanup_needed = true;
@@ -94,7 +91,11 @@ impl<Ev> EventNotifier<Ev> {
         }
     }
 
-    pub fn cleanup_subscribers(&mut self) {
+    pub fn count_subscribers(&self) -> usize {
+        self.subscribers.len()
+    }
+
+    fn cleanup_subscribers(&mut self) {
         self.subscribers.retain(|weak_sub| {
             let reference = weak_sub.clone().upgrade();
             !matches!(reference, None)
@@ -111,6 +112,7 @@ impl<Ev> Default for EventNotifier<Ev> {
 impl<Ev> Observable for EventNotifier<Ev> {
     type Event = Ev;
 
+    /// Adds new subscriber
     fn subscribe(&mut self, listener: Arc<RefCell<dyn Observer<Self::Event>>>) {
         self.subscribers.push(Arc::downgrade(&listener));
     }

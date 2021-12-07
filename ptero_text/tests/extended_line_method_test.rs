@@ -4,17 +4,17 @@ use std::rc::Rc;
 
 use bitvec::prelude::*;
 use bitvec::view::AsBits;
-
-use ptero_common::method::SteganographyMethod;
-use ptero_text::extended_line_method::{ConcealError, ExtendedLineMethod, Variant};
 use rand::RngCore;
 use rand::rngs::mock::StepRng;
 
-pub(crate) fn get_method<'a>(
+use ptero_common::method::SteganographyMethod;
+use ptero_text::extended_line_method::{ConcealError, ExtendedLineMethod, Variant};
+
+pub(crate) fn get_method(
     pivot: usize,
     variant: Variant,
     rng: &Rc<RefCell<dyn RngCore>>,
-) -> ExtendedLineMethod<'a> {
+) -> ExtendedLineMethod {
     ExtendedLineMethod::builder()
         .with_pivot(pivot)
         .with_rng(rng)

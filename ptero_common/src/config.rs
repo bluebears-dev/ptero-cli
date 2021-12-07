@@ -38,7 +38,7 @@ impl CommonMethodConfig {
     /// use std::rc::Rc;
     /// use rand::{RngCore, SeedableRng};
     /// use rand::rngs::StdRng;
-    /// use ptero::method::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+    /// use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::from_entropy()));
     /// let default_config = CommonMethodConfig::builder()
@@ -55,17 +55,14 @@ impl CommonMethodConfig {
     /// use std::borrow::BorrowMut;
     /// use std::cell::RefCell;
     /// use std::rc::Rc;
-    /// use std::sync::mpsc::channel;
     /// use rand::rngs::mock::StepRng;
     /// use rand::{Rng, RngCore};
-    /// use ptero_common::config::{MethodProgressStatus, CommonMethodConfig};
+    /// use ptero_common::config::CommonMethodConfig;
     ///
-    /// let (tx, rx) = channel::<MethodProgressStatus>();
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(2, 1)));
     ///
     /// let mut config = CommonMethodConfig::builder()
     ///     .with_rng(&rng)
-    ///     .register(&tx)
     ///     .build()
     ///     .unwrap();
     ///

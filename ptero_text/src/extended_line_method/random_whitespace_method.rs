@@ -18,12 +18,12 @@ use crate::extended_line_method::{ConcealError, Result};
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 
-pub struct RandomWhitespaceMethodBuilder<'a> {
-    config_builder: CommonMethodConfigBuilder<'a>,
+pub struct RandomWhitespaceMethodBuilder {
+    config_builder: CommonMethodConfigBuilder,
     whitespace_str: &'static str,
 }
 
-impl<'a> Default for RandomWhitespaceMethodBuilder<'a> {
+impl Default for RandomWhitespaceMethodBuilder {
     fn default() -> Self {
         RandomWhitespaceMethodBuilder {
             config_builder: CommonMethodConfig::builder(),
@@ -32,26 +32,10 @@ impl<'a> Default for RandomWhitespaceMethodBuilder<'a> {
     }
 }
 
-impl<'a> RandomWhitespaceMethodBuilder<'a> {
+impl RandomWhitespaceMethodBuilder {
     /// Set custom RNG for method.
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
-        self
-    }
-
-    /// Register progress status pipe
-    pub fn register(mut self, observer: &'a Sender<MethodProgressStatus>) -> Self {
-        self.config_builder = self.config_builder.register(observer);
-        self
-    }
-
-    /// Proxy method for passing optional, see [`RandomWhitespaceMethodBuilder::register`] for
-    /// alternative.
-    pub fn maybe_register(
-        mut self,
-        maybe_observer: Option<&'a Sender<MethodProgressStatus>>,
-    ) -> Self {
-        self.config_builder = self.config_builder.maybe_register(maybe_observer);
         self
     }
 
@@ -61,7 +45,7 @@ impl<'a> RandomWhitespaceMethodBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> RandomWhitespaceMethod<'a> {
+    pub fn build(self) -> RandomWhitespaceMethod {
         RandomWhitespaceMethod {
             config: self.config_builder.build().unwrap(),
             whitespace_str: self.whitespace_str,
@@ -69,13 +53,13 @@ impl<'a> RandomWhitespaceMethodBuilder<'a> {
     }
 }
 
-pub struct RandomWhitespaceMethod<'a> {
-    config: CommonMethodConfig<'a>,
+pub struct RandomWhitespaceMethod {
+    config: CommonMethodConfig,
     whitespace_str: &'static str,
 }
 
-impl<'a> RandomWhitespaceMethod<'a> {
-    pub fn builder() -> RandomWhitespaceMethodBuilder<'a> {
+impl RandomWhitespaceMethod {
+    pub fn builder() -> RandomWhitespaceMethodBuilder {
         RandomWhitespaceMethodBuilder::default()
     }
 

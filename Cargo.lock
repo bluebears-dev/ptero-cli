@@ -514,15 +514,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ptero_derive"
-version = "0.1.0"
-dependencies = [
- "ptero_common",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "ptero_text"
 version = "0.1.0"
 dependencies = [
@@ -530,7 +521,6 @@ dependencies = [
  "derive_builder",
  "log",
  "ptero_common",
- "ptero_derive",
  "rand 0.8.4",
  "snafu",
  "unicode-segmentation",

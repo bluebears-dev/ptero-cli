@@ -26,7 +26,6 @@ path = "src/bin/main.rs"
 [workspace]
 members = [
     "ptero_common",
-    "ptero_derive",
     "ptero_text"
 ]
 

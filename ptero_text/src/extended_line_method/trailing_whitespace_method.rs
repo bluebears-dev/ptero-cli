@@ -14,12 +14,12 @@ use ptero_common::method::{MethodProgressStatus, MethodResult};
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 
-pub struct TrailingWhitespaceMethodBuilder<'a> {
-    config_builder: CommonMethodConfigBuilder<'a>,
+pub struct TrailingWhitespaceMethodBuilder {
+    config_builder: CommonMethodConfigBuilder,
     whitespace_str: &'static str
 }
 
-impl<'a> Default for TrailingWhitespaceMethodBuilder<'a> {
+impl Default for TrailingWhitespaceMethodBuilder {
     fn default() -> Self {
         TrailingWhitespaceMethodBuilder {
             config_builder:  CommonMethodConfig::builder(),
@@ -28,23 +28,10 @@ impl<'a> Default for TrailingWhitespaceMethodBuilder<'a> {
     }
 }
 
-impl<'a> TrailingWhitespaceMethodBuilder<'a> {
+impl TrailingWhitespaceMethodBuilder {
     /// Set custom RNG for method.
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
-        self
-    }
-
-    /// Register progress status pipe
-    pub fn register(mut self, observer: &'a Sender<MethodProgressStatus>) -> Self {
-        self.config_builder = self.config_builder.register(observer);
-        self
-    }
-
-    /// Proxy method for passing optional, see [`RandomWhitespaceMethodBuilder::register`] for
-    /// alternative.
-    pub fn maybe_register(mut self, maybe_observer: Option<&'a Sender<MethodProgressStatus>>) -> Self {
-        self.config_builder = self.config_builder.maybe_register(maybe_observer);
         self
     }
 
@@ -54,7 +41,7 @@ impl<'a> TrailingWhitespaceMethodBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> TrailingWhitespaceMethod<'a> {
+    pub fn build(self) -> TrailingWhitespaceMethod {
         TrailingWhitespaceMethod {
             config: self.config_builder.build().unwrap(),
             whitespace_str: self.whitespace_str
@@ -62,13 +49,13 @@ impl<'a> TrailingWhitespaceMethodBuilder<'a> {
     }
 }
 
-pub struct TrailingWhitespaceMethod<'a> {
-    config: CommonMethodConfig<'a>,
+pub struct TrailingWhitespaceMethod {
+    config: CommonMethodConfig,
     whitespace_str: &'static str
 }
 
-impl<'a> TrailingWhitespaceMethod<'a> {
-    pub fn builder() -> TrailingWhitespaceMethodBuilder<'a> {
+impl TrailingWhitespaceMethod {
+    pub fn builder() -> TrailingWhitespaceMethodBuilder {
         TrailingWhitespaceMethodBuilder::default()
     }
 

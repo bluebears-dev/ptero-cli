@@ -1,18 +1,138 @@
+//! This module contains implementation of Extended Line algorithm that can be used to
+//! conceal data inside a text.
+//!
+//! It implements [`SteganographyMethod`] trait for [`&str`] type.
+//!
+//! # Examples
+//!
+//! Concealing data with required properties:
+//! ```
+//! use std::cell::RefCell;
+//! use std::rc::Rc;
+//! use bitvec::prelude::*;
+//! use bitvec::view::AsBits;
+//! use rand::{RngCore, SeedableRng};
+//! use rand::rngs::StdRng;
+//! use ptero_common::method::SteganographyMethod;
+//! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+//!
+//! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
+//! let cover_text = "This is a sample text that is harmless";
+//! let mut ext_line_method = ExtendedLineMethod::builder()
+//!     .with_rng(&rng)
+//!     .with_pivot(11)
+//!     .build();
+//!
+//! let data = "E";
+//! let mut data_bit_iter = data.as_bits::<Msb0>().iter();
+//!
+//! if let Ok(stego_text) = ext_line_method.try_conceal(cover_text, &mut data_bit_iter) {
+//!     assert_eq!(&stego_text, "This  is a\nsample text \nthat  is\nharmless");
+//! } else {
+//!     panic!("Something went wrong");
+//! }
+//! ```
+//!
+//! Revealing data:
+//! ```
+//! use std::cell::RefCell;
+//! use std::rc::Rc;
+//! use bitvec::prelude::*;
+//! use bitvec::view::AsBits;
+//! use rand::{RngCore, SeedableRng};
+//! use rand::rngs::StdRng;
+//! use ptero_common::method::SteganographyMethod;
+//! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+//!
+//! // The RNG must be seeded with the same value as used when concealing
+//! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
+//! let stego_text = "This  is a\nsample text \nthat  is\nharmless";
+//! let mut ext_line_method = ExtendedLineMethod::builder()
+//!     .with_rng(&rng)
+//!     .with_pivot(11)
+//!     .build();
+//!
+//! if let Ok(bits) = ext_line_method.try_reveal::<Msb0, u8>(stego_text) {
+//!     // Most often you'll get your data with trailing noise (probably zeroes)
+//!     // If you know the payload's size, you can trim it
+//!     let output = String::from_utf8_lossy(&bits.as_raw_slice()[0..1]);
+//!     assert_eq!(&output, "E");
+//! }
+//! ```
+//!
+//! Tracking progress of concealing:
+//! ```
+//! use std::cell::RefCell;
+//! use std::rc::Rc;
+//! use std::sync::Arc;
+//! use bitvec::prelude::*;
+//! use bitvec::view::AsBits;
+//! use rand::{RngCore, SeedableRng};
+//! use rand::rngs::StdRng;
+//! use ptero_common::method::{MethodProgressStatus, SteganographyMethod};
+//! use ptero_common::observer::Observer;
+//! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+//!
+//! struct Listener {
+//!     pub amount_written: u64,
+//!     pub has_finished: bool
+//! }
+//!
+//! impl Listener {
+//!     fn new() -> Self {
+//!         Listener {
+//!             amount_written: 0,
+//!             has_finished: false
+//!         }
+//!     }
+//! }
+//!
+//! impl Observer<MethodProgressStatus> for Listener {
+//!     fn on_notify(&mut self, event: &MethodProgressStatus) {
+//!         match event {
+//!             MethodProgressStatus::DataWritten(amount) => { self.amount_written += amount; }
+//!             MethodProgressStatus::Finished => { self.has_finished = true; }
+//!         }
+//!     }
+//! }
+//!
+//! // The RNG must be seeded with the same value as used when concealing
+//! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
+//! let cover_text = "This is a sample text that is harmless";
+//! let mut ext_line_method = ExtendedLineMethod::builder()
+//!     .with_rng(&rng)
+//!     .with_pivot(11)
+//!     .build();
+//!
+//! let listener_arc = Arc::new(RefCell::new(Listener::new()));
+//! ext_line_method.subscribe(listener_arc.clone());
+//!
+//! let data = "E";
+//! let mut data_bit_iter = data.as_bits::<Msb0>().iter();
+//!
+//! ext_line_method.try_conceal(cover_text, &mut data_bit_iter);
+//!
+//! assert_eq!(listener_arc.borrow().has_finished, true);
+//! assert_eq!(listener_arc.borrow().amount_written, 8);
+//! ```
+//! # Description
+//! TBD
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
-use std::rc::{Rc, Weak};
-use std::sync::mpsc::Sender;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::{debug, trace};
-use rand::{Rng, RngCore};
+use rand::RngCore;
 use snafu::Snafu;
 use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
+use ptero_common::observer::{Observable, Observer};
 
 use self::random_whitespace_method::RandomWhitespaceMethod;
 use self::trailing_whitespace_method::TrailingWhitespaceMethod;
@@ -45,13 +165,13 @@ pub enum Variant {
 
 /// Builder for [`ExtendedLineMethod`] algorithm.
 /// It enables you to configure the method to your use case.
-pub struct ExtendedLineMethodBuilder<'a> {
+pub struct ExtendedLineMethodBuilder {
     pivot: usize,
     variant: Variant,
-    config_builder: CommonMethodConfigBuilder<'a>,
+    config_builder: CommonMethodConfigBuilder,
 }
 
-impl<'a> Default for ExtendedLineMethodBuilder<'a> {
+impl<'a> Default for ExtendedLineMethodBuilder {
     fn default() -> Self {
         ExtendedLineMethodBuilder {
             pivot: DEFAULT_PIVOT,
@@ -61,16 +181,10 @@ impl<'a> Default for ExtendedLineMethodBuilder<'a> {
     }
 }
 
-impl<'a> ExtendedLineMethodBuilder<'a> {
+impl ExtendedLineMethodBuilder {
     /// Set custom RNG for method.
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
-        self
-    }
-
-    /// Register progress status pipe
-    pub fn register(mut self, observer: &'a Sender<MethodProgressStatus>) -> Self {
-        self.config_builder = self.config_builder.register(observer);
         self
     }
 
@@ -95,12 +209,10 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
     /// ```
     /// use std::cell::RefCell;
     /// use std::rc::Rc;
-    /// use std::sync::mpsc::channel;
     /// use rand::{RngCore, SeedableRng};
     /// use rand::rngs::mock::StepRng;
     /// use rand::rngs::StdRng;
-    /// use ptero::method::extended_line_method::{ExtendedLineMethodBuilder, Variant};
-    /// use ptero::method::config::MethodProgressStatus;
+    /// use ptero_text::extended_line_method::{ExtendedLineMethodBuilder, Variant};
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::from_entropy()));
     /// let method = ExtendedLineMethodBuilder::default()
@@ -113,22 +225,18 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
     /// ```
     /// use std::cell::RefCell;
     /// use std::rc::Rc;
-    /// use std::sync::mpsc::channel;
     /// use rand::RngCore;
     /// use rand::rngs::mock::StepRng;
     /// use ptero_text::extended_line_method::{ExtendedLineMethodBuilder, Variant};
-    /// use ptero_common::config::MethodProgressStatus;
     ///
-    /// let (tx, rx) = channel::<MethodProgressStatus>();
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     /// let method = ExtendedLineMethodBuilder::default()
     ///     .with_rng(&rng)
     ///     .with_variant(Variant::V2)
     ///     .with_pivot(20)
-    ///     .register(&tx)
     ///     .build();
     /// ```
-    pub fn build(self) -> ExtendedLineMethod<'a> {
+    pub fn build(self) -> ExtendedLineMethod {
         ExtendedLineMethod {
             pivot: self.pivot,
             variant: self.variant,
@@ -165,13 +273,13 @@ pub type Result<Success> = std::result::Result<Success, ConcealError>;
 pub type VerificationResult = std::result::Result<(), ConcealError>;
 
 /// The main structure describing internal state for the Extended Line method.
-pub struct ExtendedLineMethod<'a> {
+pub struct ExtendedLineMethod {
     pivot: usize,
     variant: Variant,
-    config: CommonMethodConfig<'a>,
+    config: CommonMethodConfig,
 }
 
-impl<'a> ExtendedLineMethod<'a> {
+impl ExtendedLineMethod {
     /// Returns a builder for [`ExtendedLineMethod`] algorithm.
     ///
     /// # Examples
@@ -183,7 +291,7 @@ impl<'a> ExtendedLineMethod<'a> {
     /// use std::rc::Rc;
     /// use rand::RngCore;
     /// use rand::rngs::mock::StepRng;
-    /// use ptero::method::extended_line_method::ExtendedLineMethod;
+    /// use ptero_text::extended_line_method::ExtendedLineMethod;
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     /// let method = ExtendedLineMethod::builder()
@@ -191,8 +299,12 @@ impl<'a> ExtendedLineMethod<'a> {
     ///     .with_pivot(20)
     ///     .build();
     /// ```
-    pub fn builder() -> ExtendedLineMethodBuilder<'a> {
+    pub fn builder() -> ExtendedLineMethodBuilder {
         ExtendedLineMethodBuilder::default()
+    }
+
+    pub fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
+        self.config.notifier.subscribe(subscriber);
     }
 
     pub fn verify_pivot(&self, cover: &str) -> VerificationResult {
@@ -211,17 +323,15 @@ impl<'a> ExtendedLineMethod<'a> {
         }
     }
 
-    fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod<'a> {
+    fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod {
         RandomWhitespaceMethod::builder()
             .with_rng(&self.config.rng.upgrade().unwrap())
-            .maybe_register(self.config.notifier)
             .build()
     }
 
-    fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod<'a> {
+    fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod {
         TrailingWhitespaceMethod::builder()
             .with_rng(&self.config.rng.upgrade().unwrap())
-            .maybe_register(self.config.notifier)
             .build()
     }
 
@@ -265,9 +375,12 @@ impl<'a> ExtendedLineMethod<'a> {
                     Ok(trailing_whitespace_submethod.conceal_in_trailing_whitespace(data, result))
                 }
             };
+
             if let MethodResult::NoDataLeft = method_result? {
                 return Ok(MethodResult::NoDataLeft);
             }
+
+            self.config.notifier.notify(&MethodProgressStatus::DataWritten(1));
         }
         Ok(MethodResult::Success)
     }
@@ -392,7 +505,7 @@ impl<'a> ExtendedLineMethod<'a> {
     }
 }
 
-impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
+impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
     type ConcealedOutput = String;
 
     fn try_conceal<Order, Type>(
@@ -427,6 +540,8 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
             result.push_str(NEWLINE_STR);
             result.push_str(&line);
         }
+
+        self.config.notifier.notify(&MethodProgressStatus::Finished);
 
         Ok(result)
     }
