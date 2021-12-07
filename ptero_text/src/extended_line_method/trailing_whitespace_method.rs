@@ -8,8 +8,8 @@ use log::trace;
 use rand::RngCore;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::encoder::EncoderResult;
-use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
+use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+use ptero_common::method::{MethodProgressStatus, MethodResult};
 
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
@@ -76,7 +76,7 @@ impl<'a> TrailingWhitespaceMethod<'a> {
         &self,
         data: &mut Iter<Order, Type>,
         cover: &mut String,
-    ) -> EncoderResult
+    ) -> MethodResult
         where
             Order: BitOrder,
             Type: BitStore,
@@ -85,13 +85,13 @@ impl<'a> TrailingWhitespaceMethod<'a> {
             Some(true) => {
                 trace!("Putting whitespace at the end of the line");
                 cover.push_str(self.whitespace_str);
-                EncoderResult::Success
+                MethodResult::Success
             }
             Some(false) => {
                 trace!("Skipping trailing whitespace");
-                EncoderResult::Success
+                MethodResult::Success
             }
-            None => EncoderResult::NoDataLeft,
+            None => MethodResult::NoDataLeft,
         }
     }
 

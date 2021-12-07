@@ -10,9 +10,10 @@ use log::trace;
 use rand::{Rng, RngCore};
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::encoder::EncoderResult;
-use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
-use crate::method::extended_line_method::{ConcealError, Result};
+use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+use ptero_common::method::{MethodProgressStatus, MethodResult};
+
+use crate::extended_line_method::{ConcealError, Result};
 
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
@@ -84,7 +85,7 @@ impl<'a> RandomWhitespaceMethod<'a> {
         last_newline_index: usize,
     ) -> usize {
         let rng = &*self.config.rng.upgrade().unwrap();
-        let approx_position = rng.borrow_mut().gen_range(last_newline_index, cover.len());
+        let approx_position = rng.borrow_mut().gen_range(last_newline_index..cover.len());
 
         let last_line = &cover[last_newline_index..];
         let mut position =
@@ -105,7 +106,7 @@ impl<'a> RandomWhitespaceMethod<'a> {
         &mut self,
         data: &mut Iter<Order, Type>,
         cover: &mut String,
-    ) -> Result<EncoderResult>
+    ) -> Result<MethodResult>
     where
         Order: BitOrder,
         Type: BitStore,
@@ -126,13 +127,13 @@ impl<'a> RandomWhitespaceMethod<'a> {
 
                 trace!("Putting space at position {}", position);
                 cover.insert_str(position, &String::from(self.whitespace_str));
-                EncoderResult::Success
+                MethodResult::Success
             }
             Some(false) => {
                 trace!("Skipping double whitespace");
-                EncoderResult::Success
+                MethodResult::Success
             }
-            None => EncoderResult::NoDataLeft,
+            None => MethodResult::NoDataLeft,
         })
     }
 

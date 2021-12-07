@@ -23,6 +23,13 @@ doc = false
 name = "ptero_cli"
 path = "src/bin/main.rs"
 
+[workspace]
+members = [
+    "ptero_common",
+    "ptero_derive",
+    "ptero_text"
+]
+
 [dependencies]
 atty = "0.2.0"
 indicatif = "0.15.0"

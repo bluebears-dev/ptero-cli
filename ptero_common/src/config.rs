@@ -5,15 +5,8 @@ use std::sync::mpsc::Sender;
 use rand::{Rng, RngCore, SeedableRng};
 use rand::prelude::StdRng;
 
-/// Status `enum` of the steganographic method.
-/// Send to the observer in [`CommonMethodConfig`] during hiding/revealing.
-#[derive(Debug, Copy, Clone)]
-pub enum MethodProgressStatus {
-    /// Informs about step progress (increment) - amount of written data into the cover.
-    DataWritten(u64),
-    /// Process has been completed.
-    Finished,
-}
+use crate::method::MethodProgressStatus;
+use crate::observer::{EventNotifier, EventNotifierError};
 
 /// Common configuration for all steganographic methods.
 #[derive(Builder)]
@@ -21,8 +14,8 @@ pub enum MethodProgressStatus {
 pub struct CommonMethodConfig<'a> {
     /// Observer that recognizes [`MethodProgressStatus`].
     /// This can be used to track the progress of hiding/revealing.
-    #[builder(setter(into, strip_option, name = "register"), default)]
-    pub observer: Option<&'a Sender<MethodProgressStatus>>,
+    #[builder(private, setter(into), default)]
+    pub notifier: EventNotifier<'a, MethodProgressStatus>,
     /// Random number generator used by methods.
     /// By default populated with [`StdRng::from_entropy`].
     #[builder(private, setter())]
@@ -30,9 +23,13 @@ pub struct CommonMethodConfig<'a> {
 }
 
 impl<'a> CommonMethodConfigBuilder<'a> {
-    pub fn maybe_register(mut self, observer: Option<&'a Sender<MethodProgressStatus>>) -> Self {
-        self.observer = Some(observer);
-        self
+    pub fn register<F>(self, name: &'a str, listener: F) -> Result<(), EventNotifierError>
+    where
+        F: 'static + Fn(&MethodProgressStatus)
+    {
+        self.notifier.map(|mut notifier| {
+            notifier.register(name, listener)
+        }).unwrap()
     }
 
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
@@ -70,9 +67,9 @@ impl<'a> CommonMethodConfig<'a> {
     /// use std::cell::RefCell;
     /// use std::rc::Rc;
     /// use std::sync::mpsc::channel;
-    /// use ptero::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
     /// use rand::rngs::mock::StepRng;
     /// use rand::{Rng, RngCore};
+    /// use ptero_common::config::{MethodProgressStatus, CommonMethodConfig};
     ///
     /// let (tx, rx) = channel::<MethodProgressStatus>();
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(2, 1)));

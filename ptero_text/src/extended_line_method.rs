@@ -11,9 +11,8 @@ use rand::{Rng, RngCore};
 use snafu::Snafu;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::encoder::EncoderResult;
-use crate::method::config::{CommonMethodConfig, CommonMethodConfigBuilder, MethodProgressStatus};
-use crate::method::SteganographyMethod;
+use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
 
 use self::random_whitespace_method::RandomWhitespaceMethod;
 use self::trailing_whitespace_method::TrailingWhitespaceMethod;
@@ -117,8 +116,8 @@ impl<'a> ExtendedLineMethodBuilder<'a> {
     /// use std::sync::mpsc::channel;
     /// use rand::RngCore;
     /// use rand::rngs::mock::StepRng;
-    /// use ptero::method::extended_line_method::{ExtendedLineMethodBuilder, Variant};
-    /// use ptero::method::config::MethodProgressStatus;
+    /// use ptero_text::extended_line_method::{ExtendedLineMethodBuilder, Variant};
+    /// use ptero_common::config::MethodProgressStatus;
     ///
     /// let (tx, rx) = channel::<MethodProgressStatus>();
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
@@ -215,14 +214,14 @@ impl<'a> ExtendedLineMethod<'a> {
     fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod<'a> {
         RandomWhitespaceMethod::builder()
             .with_rng(&self.config.rng.upgrade().unwrap())
-            .maybe_register(self.config.observer)
+            .maybe_register(self.config.notifier)
             .build()
     }
 
     fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod<'a> {
         TrailingWhitespaceMethod::builder()
             .with_rng(&self.config.rng.upgrade().unwrap())
-            .maybe_register(self.config.observer)
+            .maybe_register(self.config.notifier)
             .build()
     }
 
@@ -231,7 +230,7 @@ impl<'a> ExtendedLineMethod<'a> {
         word_iterator: &mut Peekable<IteratorType>,
         data: &mut Iter<Order, Type>,
         result: &mut String,
-    ) -> Result<EncoderResult>
+    ) -> Result<MethodResult>
     where
         IteratorType: Iterator<Item = &'b str>,
         Order: BitOrder,
@@ -266,11 +265,11 @@ impl<'a> ExtendedLineMethod<'a> {
                     Ok(trailing_whitespace_submethod.conceal_in_trailing_whitespace(data, result))
                 }
             };
-            if let EncoderResult::NoDataLeft = method_result? {
-                return Ok(EncoderResult::NoDataLeft);
+            if let MethodResult::NoDataLeft = method_result? {
+                return Ok(MethodResult::NoDataLeft);
             }
         }
-        Ok(EncoderResult::Success)
+        Ok(MethodResult::Success)
     }
 
     fn partial_reveal<Order, Type>(&mut self, line: &str, revealed_data: &mut BitVec<Order, Type>)
@@ -310,7 +309,7 @@ impl<'a> ExtendedLineMethod<'a> {
         word_iter: &mut Peekable<IteratorType>,
         data: &mut Iter<Order, Type>,
         result: &mut String,
-    ) -> Result<EncoderResult>
+    ) -> Result<MethodResult>
     where
         IteratorType: Iterator<Item = &'b str>,
         Order: BitOrder,
@@ -338,13 +337,13 @@ impl<'a> ExtendedLineMethod<'a> {
                 trace!("Extending line with '{}'", &next_word);
                 result.push_str(ASCII_DELIMITER);
                 result.push_str(next_word);
-                EncoderResult::Success
+                MethodResult::Success
             }
             Some(false) => {
                 trace!("Leaving line as-is");
-                EncoderResult::Success
+                MethodResult::Success
             }
-            None => EncoderResult::NoDataLeft,
+            None => MethodResult::NoDataLeft,
         })
     }
 
@@ -414,7 +413,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod<'a> {
             .filter(|word| !word.contains(char::is_whitespace))
             .peekable();
 
-        while let EncoderResult::Success =
+        while let MethodResult::Success =
             self.partial_conceal(&mut word_iterator, data, &mut result)?
         {
             result.push_str(NEWLINE_STR);

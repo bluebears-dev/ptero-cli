@@ -25,7 +25,6 @@ pub mod method;
 
 /// Logger utilities.
 pub mod log;
-pub mod observer;
 
 pub mod cli {
     pub mod capacity;
