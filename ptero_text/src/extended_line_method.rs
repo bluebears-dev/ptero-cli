@@ -143,6 +143,7 @@ const DEFAULT_PIVOT: usize = 15;
 
 mod random_whitespace_method;
 mod trailing_whitespace_method;
+pub mod character_sets;
 
 #[derive(Debug)]
 pub(crate) enum MethodActions {

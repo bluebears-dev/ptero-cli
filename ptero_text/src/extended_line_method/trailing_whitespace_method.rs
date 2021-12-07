@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 use bitvec::prelude::*;
@@ -10,23 +11,37 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult};
+use ptero_common::observer::{EventNotifier, Observable, Observer};
 
-const DEFAULT_ASCII_DELIMITER: &str = " ";
-const NEWLINE_STR: &str = "\n";
+use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
 
 pub struct TrailingWhitespaceMethodBuilder {
     config_builder: CommonMethodConfigBuilder,
-    whitespace_str: &'static str
+    character_set: Box<dyn GetCharacterSet>,
 }
 
 impl Default for TrailingWhitespaceMethodBuilder {
     fn default() -> Self {
-        TrailingWhitespaceMethodBuilder {
-            config_builder:  CommonMethodConfig::builder(),
-            whitespace_str: DEFAULT_ASCII_DELIMITER
-        }
+        TrailingWhitespaceMethodBuilder::new()
     }
 }
+
+impl TrailingWhitespaceMethodBuilder {
+    fn new() -> Self {
+        TrailingWhitespaceMethodBuilder {
+            config_builder: CommonMethodConfig::builder(),
+            character_set: Box::new(CharacterSetType::OneBit),
+        }
+    }
+
+    /// Sets custom character set. See [`GetCharacterSet`] and [`CharacterSet`] for more info.
+    pub fn with_character_set<T>(mut self, character_set: T) -> Self
+    where
+        T: GetCharacterSet + 'static,
+    {
+        self.character_set = Box::new(character_set);
+        self
+    }
 
 impl TrailingWhitespaceMethodBuilder {
     /// Set custom RNG for method.
@@ -35,23 +50,17 @@ impl TrailingWhitespaceMethodBuilder {
         self
     }
 
-    /// Set custom whitespace delimiter
-    pub fn with_custom_whitespace_str(mut self, whitespace_str: &'static str) -> Self {
-        self.whitespace_str = whitespace_str;
-        self
-    }
-
     pub fn build(self) -> TrailingWhitespaceMethod {
         TrailingWhitespaceMethod {
             config: self.config_builder.build().unwrap(),
-            whitespace_str: self.whitespace_str
+            character_set: self.character_set,
         }
     }
 }
 
 pub struct TrailingWhitespaceMethod {
     config: CommonMethodConfig,
-    whitespace_str: &'static str
+    character_set: Box<dyn GetCharacterSet>,
 }
 
 impl TrailingWhitespaceMethod {
@@ -59,47 +68,88 @@ impl TrailingWhitespaceMethod {
         TrailingWhitespaceMethodBuilder::default()
     }
 
+    fn bitrate(&self) -> usize {
+        let amount_of_bits = std::mem::size_of::<usize>() * 8;
+        amount_of_bits - self.character_set.size().leading_zeros() as usize
+    }
+
+    fn assemble_charset_index(&self, next_bits: &BitSlice<Lsb0, usize>) -> usize {
+        let bitrate = self.bitrate();
+        let index = next_bits.as_raw_slice()[0];
+        // Pad to bitrate
+        // We might end-up with lower amount of bits than suggested by bitrate
+        index << (bitrate - next_bits.len())
+    }
+
+
     pub(crate) fn conceal_in_trailing_whitespace<Order, Type>(
-        &self,
+        &mut self,
         data: &mut Iter<Order, Type>,
         cover: &mut String,
     ) -> MethodResult
-        where
-            Order: BitOrder,
-            Type: BitStore,
+    where
+        Order: BitOrder,
+        Type: BitStore,
     {
-        match data.next().as_deref() {
-            Some(true) => {
-                trace!("Putting whitespace at the end of the line");
-                cover.push_str(self.whitespace_str);
-                MethodResult::Success
-            }
-            Some(false) => {
-                trace!("Skipping trailing whitespace");
-                MethodResult::Success
-            }
-            None => MethodResult::NoDataLeft,
+        let bitrate = self.bitrate();
+        let next_n_bits = data.take(bitrate).collect::<BitVec<Lsb0, usize>>();
+
+        if next_n_bits.is_empty() {
+            return MethodResult::NoDataLeft;
+        }
+
+        let charset_index = self.assemble_charset_index(&next_n_bits);
+
+        trace!(
+            "Took {} bits and assembled a number: {}",
+            self.bitrate(),
+            charset_index
+        );
+
+        if let Some(character) = self.character_set.get_character(charset_index) {
+            trace!(
+                "Putting unicode character {:?} at the end of the line",
+                character
+            );
+            cover.push(*character);
+        } else {
+            trace!("Skipping trailing whitespace");
+        }
+
+        if next_n_bits.len() < bitrate {
+            MethodResult::NoDataLeft
+        } else {
+            self.config.notifier.notify(&MethodProgressStatus::DataWritten(bitrate as u64));
+            MethodResult::Success
         }
     }
 
     pub(crate) fn reveal_in_trailing_whitespace<Order, Type>(
         &mut self,
         stego_text_line: &mut String,
-        revealed_data: &mut BitVec<Order, Type>
-    )
-        where
-            Order: BitOrder,
-            Type: BitStore,
+        revealed_data: &mut BitVec<Order, Type>,
+    ) where
+        Order: BitOrder,
+        Type: BitStore,
     {
-        let bit = stego_text_line.graphemes(true)
-            .last()
-            .map(|cluster| cluster == self.whitespace_str)
-            .unwrap_or(false);
+        if let Some(last_char) = stego_text_line.chars().last() {
+            let decoded_number = self.character_set.character_to_bits(&last_char);
 
-        trace!("Found trailing whitespace: {}", bit);
-        if bit {
-            stego_text_line.remove(stego_text_line.len() - 1);
+            println!(
+                "Found {:?} at the end of the line, decoded into {:b}",
+                &last_char,
+                decoded_number
+            );
+
+            let data: &BitSlice<Msb0, usize> = BitSlice::from_element(&decoded_number);
+            let data_length = data.len();
+            revealed_data.extend(data.into_iter().skip(data_length - self.bitrate()));
+
+            if decoded_number > 0 {
+                stego_text_line.remove(stego_text_line.len() - 1);
+            }
+        } else {
+            println!("Empty line received, skipping");
         }
-        revealed_data.push(bit);
     }
 }
