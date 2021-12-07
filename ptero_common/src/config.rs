@@ -1,44 +1,33 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use std::sync::mpsc::Sender;
 
-use rand::{Rng, RngCore, SeedableRng};
-use rand::prelude::StdRng;
+use rand::RngCore;
 
 use crate::method::MethodProgressStatus;
-use crate::observer::{EventNotifier, EventNotifierError};
+use crate::observer::EventNotifier;
 
 /// Common configuration for all steganographic methods.
 #[derive(Builder)]
 #[builder(pattern = "owned")]
-pub struct CommonMethodConfig<'a> {
+pub struct CommonMethodConfig {
     /// Observer that recognizes [`MethodProgressStatus`].
     /// This can be used to track the progress of hiding/revealing.
     #[builder(private, setter(into), default)]
-    pub notifier: EventNotifier<'a, MethodProgressStatus>,
+    pub notifier: EventNotifier<MethodProgressStatus>,
     /// Random number generator used by methods.
     /// By default populated with [`StdRng::from_entropy`].
     #[builder(private, setter())]
     pub rng: Weak<RefCell<dyn RngCore>>
 }
 
-impl<'a> CommonMethodConfigBuilder<'a> {
-    pub fn register<F>(self, name: &'a str, listener: F) -> Result<(), EventNotifierError>
-    where
-        F: 'static + Fn(&MethodProgressStatus)
-    {
-        self.notifier.map(|mut notifier| {
-            notifier.register(name, listener)
-        }).unwrap()
-    }
-
+impl CommonMethodConfigBuilder {
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.rng = Some(Rc::downgrade(rng));
         self
     }
 }
 
-impl<'a> CommonMethodConfig<'a> {
+impl CommonMethodConfig {
     /// Provides builder for safe configuration construction.
     ///
     /// # Examples
@@ -84,7 +73,7 @@ impl<'a> CommonMethodConfig<'a> {
     /// let mut borrowed_rng = ref_rng.borrow_mut();
     /// assert_eq!(borrowed_rng.gen::<u32>(), 2)
     /// ```
-    pub fn builder() -> CommonMethodConfigBuilder<'a> {
+    pub fn builder() -> CommonMethodConfigBuilder {
         CommonMethodConfigBuilder::default()
     }
 }

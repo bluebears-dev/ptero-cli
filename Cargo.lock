@@ -508,6 +508,7 @@ version = "0.1.0"
 dependencies = [
  "bitvec",
  "derive_builder",
+ "log",
  "rand 0.8.4",
  "snafu",
 ]
@@ -529,6 +530,7 @@ dependencies = [
  "derive_builder",
  "log",
  "ptero_common",
+ "ptero_derive",
  "rand 0.8.4",
  "snafu",
  "unicode-segmentation",

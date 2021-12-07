@@ -1,51 +1,117 @@
-use std::collections::HashMap;
+//! The observer pattern implementation for [`ptero_cli`] module.
+//! # Examples
+//!
+//! Basic usage with custom listener:
+//! ```
+//! use ptero_common::observer::{EventNotifier, Observable, Observer};
+//! use std::cell::RefCell;
+//! use std::sync::{Arc, Weak};
+//!
+//! // Event that you would like to listen to
+//! enum Event {
+//!     Inc { step: usize },
+//!     Dec { step: usize },
+//!     Finish { msg: String }
+//! }
+//!
+//! struct Counter {
+//!     pub value: usize
+//! }
+//!
+//! impl Counter {
+//!     fn on_notify(&mut self, event: &Event) {
+//!         match event {
+//!             Event::Inc{ step } => { self.value += step; }
+//!             Event::Dec{ step } => { self.value -= step; }
+//!             Event::Finish{ msg } => {
+//!                 println!("{} while counter is equal to {}", msg, self.value);
+//!             }
+//!         }
+//!     }
+//! }
+//!
+//! impl Observer<Event> for Counter {
+//!     fn notify(&mut self, event: &Event) {
+//!         self.on_notify(event);
+//!     }
+//! }
+//!
+//! // Use [`EventNotifier`] to notify all subscribers to events
+//! let mut event_notifier: EventNotifier<Event> = EventNotifier::default();
+//! // You have to wrap observers into [`Arc`]
+//! let mut counter_one = Arc::new(RefCell::new(Counter { value: 0 }));
+//! let mut counter_two = Arc::new(RefCell::new(Counter { value: 4 }));
+//!
+//! event_notifier.subscribe(counter_one.clone());
+//! event_notifier.subscribe(counter_two.clone());
+//!
+//! event_notifier.notify(&Event::Inc { step: 4 });
+//! event_notifier.notify(&Event::Dec { step: 2 });
+//! event_notifier.notify(&Event::Finish { msg: "Example message".to_string() });
+//!
+//! assert_eq!(counter_one.borrow().value, 2);
+//! assert_eq!(counter_two.borrow().value, 6);
+//! ```
+//!
+use std::cell::RefCell;
+use std::sync::{Arc, Weak};
 
-use snafu::Snafu;
+use log::warn;
 
-pub struct EventNotifier<'a, E> {
-    subscribers: HashMap<&'a str, Box<dyn Fn(&E)>>,
+pub trait Observer<Ev> {
+    fn notify(&mut self, event: &Ev);
 }
 
-impl<'a, E> Default for EventNotifier<'a, E> {
+pub trait Observable {
+    type Event;
+
+    fn subscribe(&mut self, listener: Arc<RefCell<dyn Observer<Self::Event>>>);
+}
+
+pub struct EventNotifier<Ev> {
+    subscribers: Vec<Weak<RefCell<dyn Observer<Ev>>>>,
+}
+
+impl<Ev> EventNotifier<Ev> {
+    pub fn new() -> EventNotifier<Ev> {
+        EventNotifier { subscribers: Vec::new() }
+    }
+
+    pub fn notify(&mut self, event: &Ev) {
+        let mut cleanup_needed = false;
+
+        for sub in self.subscribers.iter() {
+            if let Some(subscriber_arc) = sub.upgrade() {
+                let mut listener = subscriber_arc.borrow_mut();
+                listener.notify(event);
+            } else {
+                warn!("Stale subscriber detected, clean-up needed");
+                cleanup_needed = true;
+            }
+        }
+        if cleanup_needed {
+            self.cleanup_subscribers();
+        }
+    }
+
+    pub fn cleanup_subscribers(&mut self) {
+        self.subscribers.retain(|weak_sub| {
+            let reference = weak_sub.clone().upgrade();
+            !matches!(reference, None)
+        });
+    }
+}
+
+impl<Ev> Default for EventNotifier<Ev> {
     fn default() -> Self {
         EventNotifier::new()
     }
 }
 
-impl<'a, E> EventNotifier<'a, E> {
-    pub fn new() -> EventNotifier<'a, E> {
-        EventNotifier {
-            subscribers: HashMap::new(),
-        }
-    }
+impl<Ev> Observable for EventNotifier<Ev> {
+    type Event = Ev;
 
-    pub fn register<F>(&mut self, name: &'a str, callback: F) -> Result<(), EventNotifierError>
-    where
-        F: 'static + Fn(&E),
-    {
-        if self.subscribers.contains_key(name) {
-            self.subscribers.insert(name, Box::new(callback));
-            Ok(())
-        } else {
-            Err(EventNotifierError::KeyAlreadyPresent {
-                key: name.to_string()
-            })
-        }
+    fn subscribe(&mut self, listener: Arc<RefCell<dyn Observer<Self::Event>>>) {
+        self.subscribers.push(Arc::downgrade(&listener));
     }
-
-    pub fn unregister(&mut self, name: &'a str) {
-        self.subscribers.remove(name);
-    }
-
-    pub fn notify(&self, event: E) {
-        for callback in self.subscribers.values() {
-            callback(&event);
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Snafu)]
-pub enum EventNotifierError {
-    #[snafu(display("Cannot register under '{}' as this name is already occupied", key))]
-    KeyAlreadyPresent { key: String },
 }
