@@ -2,171 +2,168 @@ use std::error::Error;
 
 use bitvec::prelude::*;
 use bitvec::view::BitView;
-use rand::RngCore;
 use rand::rngs::mock::StepRng;
 use rstest::*;
 
 use ptero_common::method::SteganographyMethod;
-use ptero_text::extended_line_method::{ConcealError, ExtendedLineMethod, Variant};
+use ptero_text::extended_line_method::{ConcealError, Variant};
 use ptero_text::extended_line_method::character_sets::CharacterSetType::TwoBit;
 
 use crate::extended_line_method_test::*;
+use crate::test_resource::ResourceLoader;
 
+#[fixture]
+fn stego_text_loader() -> ResourceLoader {
+    let dir_path = PathBuf::new()
+        .join("resources")
+        .join("stego_texts")
+        .join("extended_line")
+        .join("two_bit");
+
+    ResourceLoader::new(&dir_path)
+}
+
+#[fixture]
+fn v1_builder() -> ExtendedLineMethodBuilder {
+    pre_build_method_with(Variant::V1, TwoBit, StepRng::new(1, 1))
+}
+
+#[fixture]
+fn v2_builder() -> ExtendedLineMethodBuilder {
+    pre_build_method_with(Variant::V2, TwoBit, StepRng::new(1, 1))
+}
+
+#[fixture]
+fn v3_builder() -> ExtendedLineMethodBuilder {
+    pre_build_method_with(Variant::V3, TwoBit, StepRng::new(1, 1))
+}
+
+#[rustfmt::skip]
 #[rstest]
-#[case(4, 97u8, SINGLE_CHAR_TEXT, "a  b \nca b\u{2000}\nca b\nca b\nca b\nc")]
-#[case(10, 255u8, WITH_WORDS_TEXT, "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-#[case(10, 255u8, WITH_OTHER_WHITESPACE_TEXT, "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-#[case(10, 255u8, WITH_EMOJI_TEXT, "A  little 🐼 has\u{2001}\n(fallen)  from\u{2001}\na \\🌳/. The\n🐼 went\nrolling\ndown the\nhill.")]
-#[case(15, 255u8, HTML_TEXT, "<div>  <button style=\"\u{2001}\nbackground:  red;\">Click\u{2001}\nme</button>\n<div/> <footer>\nThis is the end\n</footer>")]
-#[case(10, 171u8, WITH_WORDS_TEXT, "A little panda \nhas fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-fn conceals_data_variant_1<T>(
+// Variant 1 test cases
+#[case::variant_1(v1_builder(), 4, 97u8, "single_char_short_text", "single_char_short_text_variant_1")]
+#[case::variant_1(v1_builder(), 15, [121u8; 3], "single_char_long_text", "single_char_long_text_variant_1")]
+#[case::variant_1(v1_builder(), 10, 255u8, "short_text", "short_text_variant_1")]
+#[case::variant_1(v1_builder(), 20, [197u8; 18], "long_text", "long_text_variant_1")]
+#[case::variant_1(v1_builder(), 20, [726u16; 2], "unicode_text", "unicode_text_variant_1")]
+#[case::variant_1(v1_builder(), 28, 65542312u32, "html_text.html", "html_text_variant_1.html")]
+// Variant 2 test cases
+#[case::variant_2(v2_builder(), 4, 97u8, "single_char_short_text", "single_char_short_text_variant_2")]
+#[case::variant_2(v2_builder(), 15, [121u8; 3], "single_char_long_text", "single_char_long_text_variant_2")]
+#[case::variant_2(v2_builder(), 10, 255u8, "short_text", "short_text_variant_2")]
+#[case::variant_2(v2_builder(), 20, [197u8; 18], "long_text", "long_text_variant_2")]
+#[case::variant_2(v2_builder(), 20, [726u16; 2], "unicode_text", "unicode_text_variant_2")]
+#[case::variant_2(v2_builder(), 28, 65542312u32, "html_text.html", "html_text_variant_2.html")]
+// Variant 3 test cases
+#[case::variant_3(v3_builder(), 4, 97u8, "single_char_short_text", "single_char_short_text_variant_3")]
+#[case::variant_3(v3_builder(), 15, [121u8; 3], "single_char_long_text", "single_char_long_text_variant_3")]
+#[case::variant_3(v3_builder(), 10, 255u8, "short_text", "short_text_variant_3")]
+#[case::variant_3(v3_builder(), 20, [197u8; 18], "long_text", "long_text_variant_3")]
+#[case::variant_3(v3_builder(), 20, [726u16; 2], "unicode_text", "unicode_text_variant_3")]
+#[case::variant_3(v3_builder(), 30, [231u8; 3], "html_text.html", "html_text_variant_3.html")]
+fn conceals_data<T>(
+    cover_text_loader: ResourceLoader,
+    stego_text_loader: ResourceLoader,
+    #[case] method_builder: ExtendedLineMethodBuilder,
     #[case] pivot: usize,
     #[case] data: T,
-    #[case] cover: &str,
-    #[case] expected: &str,
+    #[case] cover_path: &str,
+    #[case] expected_path: &str,
 ) -> Result<(), Box<dyn Error>>
-    where T: BitStore {
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(pivot, Variant::V1, TwoBit, rng);
-    let stego_text = method.try_conceal(cover, &mut data.view_bits::<Msb0>().iter())?;
+    where
+        T: BitView,
+{
+    println!("Testing concealing into: '{}'", cover_path);
+    println!("Comparing with result in: '{}'", expected_path);
+    let mut method = method_builder.with_pivot(pivot).build()?;
+
+    let cover = cover_text_loader.load_resource(&PathBuf::from(cover_path));
+    let expected = stego_text_loader.load_resource(&PathBuf::from(expected_path));
+
+    let stego_text = method.try_conceal(&cover, &mut data.view_bits::<Msb0>().iter())?;
 
     assert_eq!(stego_text, expected);
     Ok(())
 }
 
+#[rustfmt::skip]
 #[rstest]
-#[case(4, 97u8, SINGLE_CHAR_TEXT, "a b\u{2001}\nca  b\nca b\nca b\nca b\nc")]
-#[case(10, 255u8, WITH_WORDS_TEXT, "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-#[case(10, 255u8, WITH_OTHER_WHITESPACE_TEXT, "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-#[case(10, 255u8, WITH_EMOJI_TEXT, "A  little 🐼 has\u{2001}\n(fallen)  from\u{2001}\na \\🌳/. The\n🐼 went\nrolling\ndown the\nhill.")]
-#[case(15, 255u8, HTML_TEXT, "<div>  <button style=\"\u{2001}\nbackground:  red;\">Click\u{2001}\nme</button>\n<div/> <footer>\nThis is the end\n</footer>")]
-#[case(8, 171u8, WITH_WORDS_TEXT, "A little panda\u{2000}\nhas  fallen\u{2000}\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill")]
-fn conceals_data_variant_2<T>(
+// Variant 1 test cases
+#[case::variant_1(v1_builder(), 4, "single_char_short_text_variant_1", &[97], 15 * 4)]
+#[case::variant_1(v1_builder(), 15, "single_char_long_text_variant_1", &[121; 3], 39 * 4)]
+#[case::variant_1(v1_builder(), 10, "short_text_variant_1", &[255], 13 * 4)]
+#[case::variant_1(v1_builder(), 20, "long_text_variant_1", &[197; 18], 65 * 4)]
+#[case::variant_1(v1_builder(), 20, "unicode_text_variant_1", &[2, 214, 2, 214], 26 * 4)]
+#[case::variant_1(v1_builder(), 28, "html_text_variant_1.html", &[3, 232, 24, 168], 11 * 4)]
+// Variant 2 test cases
+#[case::variant_2(v2_builder(), 4, "single_char_short_text_variant_2", &[97], 15 * 4)]
+#[case::variant_2(v2_builder(), 15, "single_char_long_text_variant_2", &[121; 3], 39 * 4)]
+#[case::variant_2(v2_builder(), 10, "short_text_variant_2", &[255], 13 * 4)]
+#[case::variant_2(v2_builder(), 20, "long_text_variant_2", &[197; 18], 65 * 4)]
+#[case::variant_2(v2_builder(), 20, "unicode_text_variant_2", &[2, 214, 2, 214], 26 * 4)]
+#[case::variant_2(v2_builder(), 28, "html_text_variant_2.html", &[3, 232, 24, 168], 11 * 4)]
+// Variant 3 test cases
+#[case::variant_3(v3_builder(), 4, "single_char_short_text_variant_3", &[97], 14 * 4)]
+#[case::variant_3(v3_builder(), 15, "single_char_long_text_variant_3", &[121; 3], 38 * 4)]
+#[case::variant_3(v3_builder(), 10, "short_text_variant_3", &[255], 13 * 4)]
+#[case::variant_3(v3_builder(), 20, "long_text_variant_3", &[197; 18], 58 * 4)]
+#[case::variant_3(v3_builder(), 20, "unicode_text_variant_3", &[2, 214, 2, 214], 25 * 4)]
+#[case::variant_3(v3_builder(), 30, "html_text_variant_3.html", &[231; 3], 9 * 4)]
+// Additional tests - non-matching stego texts variants
+#[case::non_matching(
+    v1_builder(), 7, "long_text_variant_2",
+    &[174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 174, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 128],
+    65 * 4
+)]
+#[case::non_matching(
+    v1_builder(), 7, "long_text_variant_3",
+    &[201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 201, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136],
+    58 * 4
+)]
+#[case::non_matching(
+    v2_builder(), 7, "long_text_variant_1",
+    &[155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 155, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 128],
+    65 * 4
+)]
+#[case::non_matching(
+    v2_builder(), 7, "long_text_variant_3",
+    &[154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 154, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136],
+    58 * 4
+)]
+#[case::non_matching(
+    v3_builder(), 7, "long_text_variant_1",
+    &[205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 205, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 64],
+    65 * 4
+)]
+#[case::non_matching(
+    v3_builder(), 7, "long_text_variant_2",
+    &[110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 64],
+    65 * 4
+)]
+fn reveals_data(
+    stego_text_loader: ResourceLoader,
+    #[case] method_builder: ExtendedLineMethodBuilder,
     #[case] pivot: usize,
-    #[case] data: T,
-    #[case] cover: &str,
-    #[case] expected: &str,
-) -> Result<(), Box<dyn Error>>
-    where T: BitStore {
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(pivot, Variant::V2, TwoBit, rng);
-    let stego_text = method.try_conceal(cover, &mut data.view_bits::<Msb0>().iter())?;
-
-    assert_eq!(stego_text, expected);
-    Ok(())
-}
-
-#[rstest]
-#[case(4, 97u8, SINGLE_CHAR_TEXT, "a b ca \nb ca\u{2000}\nb ca\nb ca\nb c")]
-#[case(10, 255u8, WITH_WORDS_TEXT, "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-#[case(10, 255u8, WITH_OTHER_WHITESPACE_TEXT, "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill")]
-#[case(13, 255u8, WITH_EMOJI_TEXT, "A  little 🐼 has\u{2001}\n(fallen)  from a\u{2001}\n\\🌳/. The 🐼\nwent rolling\ndown the\nhill.")]
-#[case(24, 255u8, HTML_TEXT, "<div>  <button style=\" background:\u{2001}\nred;\">Click  me</button> <div/>\u{2001}\n<footer> This is the end\n</footer>")]
-#[case(10, 171u8, WITH_WORDS_TEXT, "A  little \npanda  has\u{2001}\nfallen\nfrom a\ntree. The\npanda went\nrolling\ndown the\nhill")]
-fn conceals_data_variant_3<T>(
-    #[case] pivot: usize,
-    #[case] data: T,
-    #[case] cover: &str,
-    #[case] expected: &str,
-) -> Result<(), Box<dyn Error>>
-    where T: BitStore {
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(pivot, Variant::V3, TwoBit, rng);
-    let stego_text = method.try_conceal(cover, &mut data.view_bits::<Msb0>().iter())?;
-
-    assert_eq!(stego_text, expected);
-    Ok(())
-}
-
-const STEGO_SINGLE_LETTERS: &str = "a  b \nca b\nca  b\nca b\nca b\nc";
-const STEGO_SINGLE_LETTERS_WITH_UNICODE_1: &str = "a  b \nca b\u{2000}\nca b\nca b\nca b\nc";
-const STEGO_SINGLE_LETTERS_WITH_UNICODE_2: &str = "a  b \nca b\u{2001}\nca b\nca b\nca b\nc";
-
-const STEGO_WITH_WORDS: &str = "A  little\u{2001}\npanda has\nfallen  from";
-const STEGO_WITH_OTHER_WHITESPACE: &str =
-    "A  little panda \nhas  fallen from\u{2001}\na  tree. The\npanda went\nrolling\ndown the\nhill";
-const STEGO_WITH_SPECIAL_CHARS: &str =
-    "A  little 🐼 has \n(fallen)  from \na  \\🌳/. The 🐼\nwent\nrolling\ndown the\nhill.";
-const STEGO_HTML: &str = "<div>  <button style=\"\u{2001}\nbackground:  red;\">Click\u{2000}\nme</button>\n<div/> <footer>\nThis is the end\n</footer>";
-const STEGO_V1_CONCEALED: &str =
-    "A  little panda\u{2001}\nhas  fallen from\u{2001}\na tree.\nThe panda\nwent\nrolling\ndown the\nhill";
-const STEGO_V2_CONCEALED: &str =
-    "A little panda\u{2000}\nhas  fallen\u{2000}\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill";
-const STEGO_V3_CONCEALED: &str =
-    "A  little \npanda  has\u{2001}\nfallen\nfrom a\ntree. The\npanda went\nrolling\ndown the\nhill";
-
-#[rstest]
-#[case(4, STEGO_SINGLE_LETTERS, &[0b01100000, 0b01000000, 0b00], 24)]
-#[case(4, STEGO_SINGLE_LETTERS_WITH_UNICODE_1, &[b'a', 0, 0b00], 24)]
-#[case(4, STEGO_SINGLE_LETTERS_WITH_UNICODE_2, &[b'c', 0, 0b00], 24)]
-#[case(10, STEGO_WITH_WORDS, &[0b01110000, 0b11000000], 12)]
-#[case(10, STEGO_WITH_OTHER_WHITESPACE, &[0b11101111, 0b11000000, 0, 0b0000], 28)]
-#[case(10, STEGO_WITH_SPECIAL_CHARS, &[0b11101110, 0b11000000, 0b0000000, 0b0000], 28)]
-#[case(15, STEGO_HTML, &[0b11111101, 0, 0b00], 24)]
-#[case(10, STEGO_V1_CONCEALED, &[0b11111111, 0, 0, 0], 32)]
-fn reveals_data_variant_1(
-    #[case] pivot: usize,
-    #[case] stego_text: &str,
-    #[case] expected: &[u8],
-    #[case] expected_bit_len: usize
+    #[case] stego_path: &str,
+    #[case] expected_data: &[u8],
+    #[case] expected_bit_amount: usize,
 ) -> Result<(), Box<dyn Error>> {
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(pivot, Variant::V1, TwoBit, rng);
-    let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
+    println!("Revealing from: '{}' with pivot '{}'", stego_path, pivot);
+    let stego_text = stego_text_loader.load_resource(&PathBuf::from(stego_path));
+    let mut method = method_builder.with_pivot(pivot).build()?;
+    let data: BitVec<Msb0, u8> = method.try_reveal(&stego_text)?;
 
-    assert_eq!(data.len(), expected_bit_len);
-    assert_eq!(data.as_raw_slice(), expected);
+    assert_eq!(data.len(), expected_bit_amount);
+
+    let nonzero_data: Vec<u8> = data.as_raw_slice()
+        .iter()
+        .filter(|v| **v > 0)
+        .copied()
+        .collect();
+
+    assert_eq!(&nonzero_data, expected_data);
     Ok(())
 }
-
-#[rstest]
-#[case(4, STEGO_SINGLE_LETTERS, &[0b01010000, 0b00010000, 0b00], 24)]
-#[case(4, STEGO_SINGLE_LETTERS_WITH_UNICODE_1, &[0b01010010, 0, 0b00], 24)]
-#[case(4, STEGO_SINGLE_LETTERS_WITH_UNICODE_2, &[0b01010110, 0, 0b00], 24)]
-#[case(10, STEGO_WITH_WORDS, &[0b01110000, 0b10010000], 12)]
-#[case(10, STEGO_WITH_OTHER_WHITESPACE, &[0b11011111, 0b10010000, 0, 0b0000], 28)]
-#[case(10, STEGO_WITH_SPECIAL_CHARS, &[0b11011101, 0b10010000, 0b0000000, 0b0000], 28)]
-#[case(15, STEGO_HTML, &[0b11111011, 0, 0], 24)]
-#[case(8, STEGO_V2_CONCEALED, &[0b10101011, 0, 0, 0, 0], 40)]
-fn reveals_data_variant_2(
-    #[case] pivot: usize,
-    #[case] stego_text: &str,
-    #[case] expected: &[u8],
-    #[case] expected_bit_len: usize
-) -> Result<(), Box<dyn Error>> {
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(pivot, Variant::V2, TwoBit, rng);
-    let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
-
-    assert_eq!(data.len(), expected_bit_len);
-    assert_eq!(data.as_raw_slice(), expected);
-    Ok(())
-}
-
-#[rstest]
-#[case(4, STEGO_SINGLE_LETTERS, &[0b10100000, 0b10000000, 0], 24)]
-#[case(4, STEGO_SINGLE_LETTERS_WITH_UNICODE_1, &[0b10100001, 0, 0], 24)]
-#[case(4, STEGO_SINGLE_LETTERS_WITH_UNICODE_2, &[0b10100011, 0, 0], 24)]
-#[case(10, STEGO_WITH_WORDS, &[0b10110000, 0b11000000], 12)]
-#[case(10, STEGO_WITH_OTHER_WHITESPACE, &[0b11101111, 0b11000000, 0, 0], 28)]
-#[case(10, STEGO_WITH_SPECIAL_CHARS, &[0b11101110, 0b11000000, 0, 0], 28)]
-#[case(15, STEGO_HTML, &[0b11111101, 0, 0], 24)]
-#[case(10, STEGO_V3_CONCEALED, &[0b10101011, 0, 0, 0, 0], 36)]
-fn reveals_data_variant_3(
-    #[case] pivot: usize,
-    #[case] stego_text: &str,
-    #[case] expected: &[u8],
-    #[case] expected_bit_len: usize
-) -> Result<(), Box<dyn Error>> {
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(pivot, Variant::V3, TwoBit, rng);
-    let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
-
-    assert_eq!(data.len(), expected_bit_len);
-    assert_eq!(data.as_raw_slice(), expected);
-    Ok(())
-}
-
 
 #[test]
 fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
