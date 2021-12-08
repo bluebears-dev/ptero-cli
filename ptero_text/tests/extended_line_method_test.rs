@@ -1,6 +1,8 @@
+use std::path::PathBuf;
+
 use rand::RngCore;
 
-use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+use ptero_text::extended_line_method::{ExtendedLineMethod, ExtendedLineMethodBuilder, Variant};
 use ptero_text::extended_line_method::character_sets::GetCharacterSet;
 use ptero_text::line_separator::LineSeparatorType;
 
@@ -34,9 +36,9 @@ pub(crate) fn get_method<T, CS>(
     charset: CS,
     rng: T,
 ) -> ExtendedLineMethod
-where
-    T: RngCore + 'static,
-    CS: GetCharacterSet + 'static,
+    where
+        T: RngCore + 'static,
+        CS: GetCharacterSet + 'static,
 {
     ExtendedLineMethod::builder()
         .with_pivot(pivot)
@@ -46,4 +48,19 @@ where
         .with_trailing_charset(charset)
         .build()
         .unwrap()
+}
+
+pub(crate) fn pre_build_method_with<T, CS>(
+    variant: Variant,
+    charset: CS,
+    rng: T,
+) -> ExtendedLineMethodBuilder
+where
+    T: RngCore + 'static,
+    CS: GetCharacterSet + 'static,
+{
+    ExtendedLineMethod::builder()
+        .with_rng(rng)
+        .with_variant(variant)
+        .with_trailing_charset(charset)
 }
