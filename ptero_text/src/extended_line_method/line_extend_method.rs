@@ -33,7 +33,7 @@ impl LineExtendMethodBuilder {
     }
 
     /// Set custom RNG for method.
-    pub(crate) fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
+    pub(crate) fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
         self
     }

@@ -21,8 +21,8 @@ pub struct CommonMethodConfig {
 }
 
 impl CommonMethodConfigBuilder {
-    pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
-        self.rng = Some(Rc::downgrade(rng));
+    pub fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
+        self.rng = Some(Rc::downgrade(&rng));
         self
     }
 }
@@ -42,11 +42,11 @@ impl CommonMethodConfig {
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::from_entropy()));
     /// let default_config = CommonMethodConfig::builder()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .build();
     /// // Or by explicitly referencing builder
     /// let default_config = CommonMethodConfigBuilder::default()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .build();
     /// ```
     ///
@@ -62,7 +62,7 @@ impl CommonMethodConfig {
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(2, 1)));
     ///
     /// let mut config = CommonMethodConfig::builder()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .build()
     ///     .unwrap();
     ///

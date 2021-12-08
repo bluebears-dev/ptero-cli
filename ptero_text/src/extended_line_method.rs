@@ -19,7 +19,7 @@
 //! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
 //! let cover_text = "This is a sample text that is harmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
-//!     .with_rng(&rng)
+//!     .with_rng(rng.clone())
 //!     .with_pivot(11)
 //!     .build();
 //!
@@ -48,7 +48,7 @@
 //! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
 //! let stego_text = "This  is a\nsample text \nthat  is\nharmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
-//!     .with_rng(&rng)
+//!     .with_rng(rng.clone())
 //!     .with_pivot(11)
 //!     .build();
 //!
@@ -100,7 +100,7 @@
 //! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
 //! let cover_text = "This is a sample text that is harmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
-//!     .with_rng(&rng)
+//!     .with_rng(rng.clone())
 //!     .with_pivot(11)
 //!     .build();
 //!
@@ -194,9 +194,9 @@ impl<'a> Default for ExtendedLineMethodBuilder {
 
 impl ExtendedLineMethodBuilder {
     /// Set custom RNG for method.
-    pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
-        self.rw_submethod_builder = self.rw_submethod_builder.with_rng(rng);
-        self.tw_submethod_builder = self.tw_submethod_builder.with_rng(rng);
+    pub fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
+        self.rw_submethod_builder = self.rw_submethod_builder.with_rng(rng.clone());
+        self.tw_submethod_builder = self.tw_submethod_builder.with_rng(rng.clone());
         self.le_submethod_builder = self.le_submethod_builder.with_rng(rng);
         self
     }
@@ -244,7 +244,7 @@ impl ExtendedLineMethodBuilder {
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::from_entropy()));
     /// let method = ExtendedLineMethodBuilder::default()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .build();
     /// ```
     ///
@@ -259,7 +259,7 @@ impl ExtendedLineMethodBuilder {
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     /// let method = ExtendedLineMethodBuilder::default()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .with_variant(Variant::V2)
     ///     .with_pivot(20)
     ///     .build();
@@ -324,7 +324,7 @@ impl ExtendedLineMethod {
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     /// let method = ExtendedLineMethod::builder()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .with_pivot(20)
     ///     .build();
     /// ```
@@ -340,7 +340,7 @@ impl ExtendedLineMethod {
     ///
     /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
     /// let method = ExtendedLineMethod::builder()
-    ///     .with_rng(&rng)
+    ///     .with_rng(rng.clone())
     ///     .with_pivot(10)
     ///     .with_trailing_charset(CharacterSetType::Full)
     ///     .build();
