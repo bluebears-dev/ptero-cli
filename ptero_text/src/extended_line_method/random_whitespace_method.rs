@@ -105,9 +105,10 @@ impl RandomWhitespaceMethod {
     {
         let mut seen_whitespace = false;
         let mut bit = false;
-        for (index, cluster) in stego_text_line.graphemes(true).enumerate() {
+        for cluster in stego_text_line.graphemes(true) {
             let is_methods_whitespace = cluster == self.whitespace_str;
             if seen_whitespace && is_methods_whitespace {
+                let index = stego_text_line.find(cluster).unwrap();
                 stego_text_line.remove(index);
                 bit = true;
                 break;
