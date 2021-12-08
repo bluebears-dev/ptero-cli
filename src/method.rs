@@ -1,15 +1,4 @@
-use std::error::Error;
-use std::sync::mpsc::Sender;
-
-use bitvec::prelude::*;
-use bitvec::slice::Iter;
-use bitvec::view::{AsBits, BitView};
-use rand::{Rng, RngCore, SeedableRng};
-use rand::rngs::StdRng;
-
 use crate::{context::Context, decoder::Decoder, encoder::Encoder};
-use crate::binary::Bit;
-use crate::encoder::EncoderResult;
 
 /// Method which adds extra ASCII space when encoding bit
 pub mod random_whitespace;

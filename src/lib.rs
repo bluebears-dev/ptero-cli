@@ -2,9 +2,6 @@
 //!
 //! `ptero` is a crate with utilities for the `ptero_cli` frontend
 
-#[macro_use]
-extern crate derive_builder;
-
 /// Utils for binary data manipulation
 pub mod binary;
 
