@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::iter::Peekable;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
@@ -9,7 +10,7 @@ use rand::RngCore;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::EventNotifier;
+use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::{ConcealError, graphemes_length, Result};
 
@@ -64,6 +65,14 @@ impl LineExtendMethod {
 
     pub(crate) fn builder() -> LineExtendMethodBuilder {
         LineExtendMethodBuilder::new()
+    }
+
+    pub(crate) fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
+        self.config.notifier.subscribe(subscriber);
+    }
+
+    pub(crate) fn notify(&mut self, event: &MethodProgressStatus) {
+        self.config.notifier.notify(event);
     }
 
     pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
@@ -129,51 +138,55 @@ impl LineExtendMethod {
         trace!("Found extended line: '{}'", bit);
         revealed_data.push(bit)
     }
-}
 
-pub(crate) fn construct_pivot_line<'b, I>(pivot: usize, word_iter: &mut Peekable<I>) -> String
-where
-    I: Iterator<Item = &'b str>,
-{
-    let mut current_line_length = 0;
-    let mut result = String::new();
+    pub(crate) fn verify_pivot(&self, cover: &str) -> VerificationResult {
+        debug!("Checking if pivot is feasible for provided cover");
 
-    while let Some(next_word) = word_iter.peek() {
-        let line_appendix = if current_line_length > 0 {
-            [DEFAULT_ASCII_DELIMITER, next_word].join("")
+        let words_longer_than_pivot = cover
+            .split_whitespace()
+            .filter(|word| word.len() > self.pivot)
+            .collect::<Vec<&str>>();
+
+        if !words_longer_than_pivot.is_empty() {
+            let word = words_longer_than_pivot[0];
+            Err(ConcealError::pivot_too_small(word.to_string(), self.pivot))
         } else {
-            next_word.to_string()
-        };
-
-        if current_line_length + graphemes_length(&line_appendix) > pivot {
-            break;
+            Ok(())
         }
-
-        current_line_length += graphemes_length(&line_appendix);
-        result.push_str(&line_appendix);
-
-        word_iter.next();
     }
-    trace!(
-        "Constructed line of length: '{}' while '{}' is the pivot",
-        current_line_length,
-        pivot
-    );
-    result
-}
 
-pub(crate) fn verify_pivot(pivot: usize, cover: &str) -> VerificationResult {
-    debug!("Checking if pivot is feasible for provided cover");
+    pub(crate) fn construct_pivot_line<'b, I>(&self, word_iter: &mut Peekable<I>) -> String
+    where
+        I: Iterator<Item = &'b str>,
+    {
+        let mut current_line_length = 0;
+        let mut result = String::new();
 
-    let words_longer_than_pivot = cover
-        .split_whitespace()
-        .filter(|word| word.len() > pivot)
-        .collect::<Vec<&str>>();
+        while let Some(next_word) = word_iter.peek() {
+            let line_appendix = if current_line_length > 0 {
+                [DEFAULT_ASCII_DELIMITER, next_word].join("")
+            } else {
+                next_word.to_string()
+            };
 
-    if !words_longer_than_pivot.is_empty() {
-        let word = words_longer_than_pivot[0];
-        Err(ConcealError::pivot_too_small(word.to_string(), pivot))
-    } else {
-        Ok(())
+            if current_line_length + graphemes_length(&line_appendix) > self.pivot {
+                break;
+            }
+
+            current_line_length += graphemes_length(&line_appendix);
+            result.push_str(&line_appendix);
+
+            word_iter.next();
+        }
+        trace!(
+            "Constructed line of length: '{}' while '{}' is the pivot",
+            current_line_length,
+            self.pivot
+        );
+        result
+    }
+
+    pub(crate) fn get_pivot(&self) -> usize {
+        self.pivot
     }
 }

@@ -120,6 +120,7 @@
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -133,7 +134,10 @@ use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
 use ptero_common::observer::{Observable, Observer};
 
-use crate::extended_line_method::line_extend_method::{construct_pivot_line, LineExtendMethod, verify_pivot};
+use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
+use crate::extended_line_method::line_extend_method::{LineExtendMethod, LineExtendMethodBuilder};
+use crate::extended_line_method::random_whitespace_method::RandomWhitespaceMethodBuilder;
+use crate::extended_line_method::trailing_whitespace_method::TrailingWhitespaceMethodBuilder;
 
 use self::random_whitespace_method::RandomWhitespaceMethod;
 use self::trailing_whitespace_method::TrailingWhitespaceMethod;
@@ -157,28 +161,36 @@ pub(crate) enum MethodActions {
 /// It describes which variation of internally used algorithms you want to use.
 #[derive(Debug)]
 pub enum Variant {
+    /// Triggers submethods in given order:
+    ///
     /// Line Extension, Random Whitespace, Trailing Whitespace
     V1,
+    /// Triggers submethods in given order:
+    ///
     /// Line Extension, Trailing Whitespace, Random Whitespace
     V2,
+    /// Triggers submethods in given order:
+    ///
     /// Random Whitespace, Line Extension, Trailing Whitespace
-    V3,
+    V3
 }
 
 /// Builder for [`ExtendedLineMethod`] algorithm.
 /// It enables you to configure the method to your use case.
 pub struct ExtendedLineMethodBuilder {
-    pivot: usize,
+    rw_submethod_builder: RandomWhitespaceMethodBuilder,
+    tw_submethod_builder: TrailingWhitespaceMethodBuilder,
+    le_submethod_builder: LineExtendMethodBuilder,
     variant: Variant,
-    config_builder: CommonMethodConfigBuilder,
 }
 
 impl<'a> Default for ExtendedLineMethodBuilder {
     fn default() -> Self {
         ExtendedLineMethodBuilder {
-            pivot: DEFAULT_PIVOT,
+            rw_submethod_builder: RandomWhitespaceMethodBuilder::new(),
+            tw_submethod_builder: TrailingWhitespaceMethodBuilder::new(),
+            le_submethod_builder: LineExtendMethodBuilder::new(),
             variant: Variant::V1,
-            config_builder: CommonMethodConfig::builder(),
         }
     }
 }
@@ -186,7 +198,24 @@ impl<'a> Default for ExtendedLineMethodBuilder {
 impl ExtendedLineMethodBuilder {
     /// Set custom RNG for method.
     pub fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
-        self.config_builder = self.config_builder.with_rng(rng);
+        self.rw_submethod_builder = self.rw_submethod_builder.with_rng(rng);
+        self.tw_submethod_builder = self.tw_submethod_builder.with_rng(rng);
+        self.le_submethod_builder = self.le_submethod_builder.with_rng(rng);
+        self
+    }
+
+    /// Sets custom character set to be used when triggering Trailing Whitespace submethod.
+    ///
+    /// Possible values are listed in [`CharacterSetType`]. You can implement your custom type
+    /// as long as it extends [`GetCharacterSet`].
+    ///
+    /// By manipulating this value, you can increase bitrate of the method, maximum being 7 bits
+    /// per cycle.
+    pub fn with_trailing_charset<T>(mut self, character_set: T) -> Self
+        where
+            T: GetCharacterSet + 'static,
+    {
+        self.tw_submethod_builder = self.tw_submethod_builder.with_character_set(character_set);
         self
     }
 
@@ -198,7 +227,7 @@ impl ExtendedLineMethodBuilder {
 
     /// Set pivot
     pub fn with_pivot(mut self, pivot: usize) -> Self {
-        self.pivot = pivot;
+        self.le_submethod_builder = self.le_submethod_builder.with_pivot(pivot);
         self
     }
 
@@ -240,9 +269,10 @@ impl ExtendedLineMethodBuilder {
     /// ```
     pub fn build(self) -> ExtendedLineMethod {
         ExtendedLineMethod {
-            pivot: self.pivot,
+            rw_submethod: self.rw_submethod_builder.build(),
+            tw_submethod: self.tw_submethod_builder.build(),
+            le_submethod: self.le_submethod_builder.build(),
             variant: self.variant,
-            config: self.config_builder.build().unwrap(),
         }
     }
 }
@@ -275,9 +305,10 @@ pub type Result<Success> = std::result::Result<Success, ConcealError>;
 
 /// The main structure describing internal state for the Extended Line method.
 pub struct ExtendedLineMethod {
-    pivot: usize,
     variant: Variant,
-    config: CommonMethodConfig,
+    rw_submethod: RandomWhitespaceMethod,
+    tw_submethod: TrailingWhitespaceMethod,
+    le_submethod: LineExtendMethod,
 }
 
 impl ExtendedLineMethod {
@@ -300,12 +331,35 @@ impl ExtendedLineMethod {
     ///     .with_pivot(20)
     ///     .build();
     /// ```
+    ///
+    /// With different trailing charset:
+    /// ```
+    /// use std::cell::RefCell;
+    /// use std::rc::Rc;
+    /// use rand::RngCore;
+    /// use rand::rngs::mock::StepRng;
+    /// use ptero_text::extended_line_method::character_sets::CharacterSetType;
+    /// use ptero_text::extended_line_method::ExtendedLineMethod;
+    ///
+    /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
+    /// let method = ExtendedLineMethod::builder()
+    ///     .with_rng(&rng)
+    ///     .with_pivot(10)
+    ///     .with_trailing_charset(CharacterSetType::Full)
+    ///     .build();
+    /// ```
     pub fn builder() -> ExtendedLineMethodBuilder {
         ExtendedLineMethodBuilder::default()
     }
 
     pub fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
-        self.config.notifier.subscribe(subscriber);
+        self.tw_submethod.subscribe(subscriber.clone());
+        self.rw_submethod.subscribe(subscriber.clone());
+        self.le_submethod.subscribe(subscriber);
+    }
+
+    fn notify(&mut self, event: &MethodProgressStatus) {
+        self.tw_submethod.notify(event);
     }
 
     fn partial_conceal<'b, IteratorType, Order, Type>(
@@ -319,34 +373,31 @@ impl ExtendedLineMethod {
         Order: BitOrder,
         Type: BitStore,
     {
-        let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
-        let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
-        let mut line_extend_submethod = self.build_line_extend_submethod();
-
-        let pivot_line = construct_pivot_line(self.pivot, word_iterator);
+        let pivot = self.le_submethod.get_pivot();
+        let pivot_line = self.le_submethod.construct_pivot_line(word_iterator);
         result.push_str(&pivot_line);
 
         if pivot_line.is_empty() {
             let remaining_data_size = data.count();
             return Err(ConcealError::no_cover_words_left(
                 remaining_data_size,
-                self.pivot,
+                pivot,
             ));
         }
 
         for action in get_variant_methods(&self.variant) {
             let method_result = match action {
-                MethodActions::LineExtend => line_extend_submethod.conceal_in_extended_line(
+                MethodActions::LineExtend => self.le_submethod.conceal_in_extended_line(
                     graphemes_length(&pivot_line),
                     word_iterator,
                     data,
                     result,
                 ),
                 MethodActions::RandomASCIIWhitespace => {
-                    random_whitespace_submethod.conceal_in_random_whitespace(data, result)
+                    self.rw_submethod.conceal_in_random_whitespace(data, result)
                 }
                 MethodActions::TrailingASCIIWhitespace => {
-                    Ok(trailing_whitespace_submethod.conceal_in_trailing_whitespace(data, result))
+                    Ok(self.tw_submethod.conceal_in_trailing_whitespace(data, result))
                 }
             };
 
@@ -362,10 +413,6 @@ impl ExtendedLineMethod {
         Order: BitOrder,
         Type: BitStore,
     {
-        let mut random_whitespace_submethod = self.build_random_whitespace_submethod();
-        let mut trailing_whitespace_submethod = self.build_trailing_whitespace_submethod();
-        let mut line_extend_submethod = self.build_line_extend_submethod();
-
         let actions = get_variant_methods(&self.variant);
         let mut current_line = line.to_string();
 
@@ -373,42 +420,21 @@ impl ExtendedLineMethod {
         for action in actions.iter().rev() {
             match action {
                 MethodActions::LineExtend => {
-                    line_extend_submethod
+                    self.le_submethod
                         .reveal_in_extended_line(&current_line, &mut gathered_bits);
                 }
                 MethodActions::RandomASCIIWhitespace => {
-                    random_whitespace_submethod
+                    self.rw_submethod
                         .reveal_in_random_whitespace(&mut current_line, &mut gathered_bits);
                 }
                 MethodActions::TrailingASCIIWhitespace => {
-                    trailing_whitespace_submethod
+                    self.tw_submethod
                         .reveal_in_trailing_whitespace(&mut current_line, &mut gathered_bits);
                 }
             };
         }
         gathered_bits.reverse();
         revealed_data.append(&mut gathered_bits);
-    }
-
-    fn build_trailing_whitespace_submethod(&self) -> TrailingWhitespaceMethod {
-        TrailingWhitespaceMethod::builder()
-            .with_rng(&self.config.rng.upgrade().unwrap())
-            .with_notifier(self.config.notifier.clone())
-            .build()
-    }
-
-    fn build_random_whitespace_submethod(&self) -> RandomWhitespaceMethod {
-        RandomWhitespaceMethod::builder()
-            .with_rng(&self.config.rng.upgrade().unwrap())
-            .with_notifier(self.config.notifier.clone())
-            .build()
-    }
-    fn build_line_extend_submethod(&self) -> LineExtendMethod {
-        LineExtendMethod::builder()
-            .with_rng(&self.config.rng.upgrade().unwrap())
-            .with_notifier(self.config.notifier.clone())
-            .with_pivot(self.pivot)
-            .build()
     }
 }
 
@@ -424,7 +450,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         Order: BitOrder,
         Type: BitStore,
     {
-        verify_pivot(self.pivot, cover)?;
+        self.le_submethod.verify_pivot(cover)?;
 
         let mut result = String::with_capacity(cover.len());
 
@@ -440,7 +466,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         }
 
         loop {
-            let line = construct_pivot_line(self.pivot, &mut word_iterator);
+            let line = self.le_submethod.construct_pivot_line(&mut word_iterator);
             if line.is_empty() {
                 break;
             }
@@ -448,7 +474,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
             result.push_str(&line);
         }
 
-        self.config.notifier.notify(&MethodProgressStatus::Finished);
+        self.notify(&MethodProgressStatus::Finished);
 
         Ok(result)
     }

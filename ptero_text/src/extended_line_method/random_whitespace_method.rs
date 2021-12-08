@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
@@ -9,7 +10,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::EventNotifier;
+use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::{ConcealError, Result};
 
@@ -21,16 +22,14 @@ pub(crate) struct RandomWhitespaceMethodBuilder {
     whitespace_str: &'static str,
 }
 
-impl Default for RandomWhitespaceMethodBuilder {
-    fn default() -> Self {
+impl RandomWhitespaceMethodBuilder {
+    pub(crate) fn new() -> Self {
         RandomWhitespaceMethodBuilder {
             config_builder: CommonMethodConfig::builder(),
             whitespace_str: DEFAULT_ASCII_DELIMITER,
         }
     }
-}
 
-impl RandomWhitespaceMethodBuilder {
     /// Set custom RNG for method.
     pub(crate) fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
@@ -65,7 +64,15 @@ impl RandomWhitespaceMethod {
     const CYCLE_BITRATE: u64 = 1;
 
     pub(crate) fn builder() -> RandomWhitespaceMethodBuilder {
-        RandomWhitespaceMethodBuilder::default()
+        RandomWhitespaceMethodBuilder::new()
+    }
+
+    pub(crate) fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
+        self.config.notifier.subscribe(subscriber);
+    }
+
+    pub(crate) fn notify(&mut self, event: &MethodProgressStatus) {
+        self.config.notifier.notify(event);
     }
 
     fn find_approx_whitespace_position(
