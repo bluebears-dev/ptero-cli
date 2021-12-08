@@ -35,11 +35,6 @@ impl TrailingWhitespaceMethodBuilder {
         self
     }
 
-    pub(crate) fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
-        self.config_builder = self.config_builder.with_notifier(notifier);
-        self
-    }
-
     /// Set custom RNG for method.
     pub(crate) fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
@@ -150,7 +145,7 @@ impl TrailingWhitespaceMethod {
             revealed_data.extend(data.into_iter().skip(data_length - self.bitrate()));
 
             if decoded_number > 0 {
-                stego_text_line.remove(stego_text_line.len() - 1);
+                stego_text_line.remove(stego_text_line.len() - last_char.len_utf8());
             }
         } else {
             trace!("Empty line received, skipping");

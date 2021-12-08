@@ -13,3 +13,7 @@ derive_builder = "0.10"
 unicode-segmentation = "1.8"
 snafu = "0.6"
 ptero_common = { version = "0.1", path = "../ptero_common" }
+
+[dev-dependencies]
+rstest = "0.11.0"
+rstest_reuse = "0.1.3"

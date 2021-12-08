@@ -15,6 +15,7 @@ use ptero_common::observer::{EventNotifier, Observable, Observer};
 use crate::extended_line_method::{ConcealError, graphemes_length, Result};
 
 const DEFAULT_ASCII_DELIMITER: &str = " ";
+const DEFAULT_PIVOT: usize = 20;
 
 pub(crate) type VerificationResult = std::result::Result<(), ConcealError>;
 
@@ -27,18 +28,13 @@ impl LineExtendMethodBuilder {
     pub(crate) fn new() -> Self {
         LineExtendMethodBuilder {
             config_builder: CommonMethodConfigBuilder::default(),
-            pivot: 0,
+            pivot: DEFAULT_PIVOT,
         }
     }
 
     /// Set custom RNG for method.
     pub(crate) fn with_rng(mut self, rng: &Rc<RefCell<dyn RngCore>>) -> Self {
         self.config_builder = self.config_builder.with_rng(rng);
-        self
-    }
-
-    pub(crate) fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
-        self.config_builder = self.config_builder.with_notifier(notifier);
         self
     }
 
@@ -134,8 +130,12 @@ impl LineExtendMethod {
         Order: BitOrder,
         Type: BitStore,
     {
-        let bit = graphemes_length(stego_text_line) > self.pivot;
-        trace!("Found extended line: '{}'", bit);
+        let expected_whitespace_amount = stego_text_line.split_whitespace().count() - 1;
+        let ext_line_length: usize = stego_text_line.split_whitespace()
+            .map(|word| graphemes_length(word))
+            .sum();
+        let bit = ext_line_length + expected_whitespace_amount > self.pivot;
+        println!("Found extended line: '{}'", bit);
         revealed_data.push(bit)
     }
 

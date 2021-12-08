@@ -120,7 +120,6 @@
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
-use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -130,11 +129,10 @@ use rand::RngCore;
 use snafu::Snafu;
 use unicode_segmentation::UnicodeSegmentation;
 
-use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
-use ptero_common::observer::{Observable, Observer};
+use ptero_common::observer::Observer;
 
-use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
+use crate::extended_line_method::character_sets::GetCharacterSet;
 use crate::extended_line_method::line_extend_method::{LineExtendMethod, LineExtendMethodBuilder};
 use crate::extended_line_method::random_whitespace_method::RandomWhitespaceMethodBuilder;
 use crate::extended_line_method::trailing_whitespace_method::TrailingWhitespaceMethodBuilder;
@@ -143,7 +141,6 @@ use self::random_whitespace_method::RandomWhitespaceMethod;
 use self::trailing_whitespace_method::TrailingWhitespaceMethod;
 
 const NEWLINE_STR: &str = "\n";
-const DEFAULT_PIVOT: usize = 15;
 
 pub mod character_sets;
 mod line_extend_method;

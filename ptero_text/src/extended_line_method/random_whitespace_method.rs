@@ -36,11 +36,6 @@ impl RandomWhitespaceMethodBuilder {
         self
     }
 
-    pub(crate) fn with_notifier(mut self, notifier: EventNotifier<MethodProgressStatus>) -> Self {
-        self.config_builder = self.config_builder.with_notifier(notifier);
-        self
-    }
-
     /// Set custom whitespace delimiter
     pub(crate) fn with_custom_whitespace_str(mut self, whitespace_str: &'static str) -> Self {
         self.whitespace_str = whitespace_str;
