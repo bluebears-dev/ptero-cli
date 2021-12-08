@@ -29,26 +29,6 @@ pub fn cover_text_loader() -> ResourceLoader {
     ResourceLoader::new(&dir_path)
 }
 
-pub(crate) fn get_method<T, CS>(
-    pivot: usize,
-    variant: Variant,
-    charset: CS,
-    rng: T,
-) -> ExtendedLineMethod
-where
-    T: RngCore + 'static,
-    CS: GetCharacterSet + 'static,
-{
-    ExtendedLineMethod::builder()
-        .with_pivot(pivot)
-        .with_rng(rng)
-        .with_line_separator(LineSeparatorType::Unix)
-        .with_variant(variant)
-        .with_trailing_charset(charset)
-        .build()
-        .unwrap()
-}
-
 pub(crate) fn pre_build_method_with<T, CS>(
     variant: Variant,
     charset: CS,

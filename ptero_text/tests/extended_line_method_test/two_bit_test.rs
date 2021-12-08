@@ -168,8 +168,7 @@ fn reveals_data(
 #[test]
 fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
     let data_input: Vec<u8> = vec![0b0];
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(8, Variant::V1, TwoBit, rng);
+    let mut method = v1_builder().with_pivot(8).build()?;
 
     let stego_text =
         method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
@@ -184,8 +183,7 @@ fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
 #[test]
 fn errors_when_cover_contains_word_longer_than_pivot() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(2, Variant::V1, TwoBit, rng);
+    let mut method = v1_builder().with_pivot(2).build()?;
 
     let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.iter());
 
@@ -199,8 +197,7 @@ fn errors_when_cover_contains_word_longer_than_pivot() -> Result<(), Box<dyn Err
 #[test]
 fn errors_when_cover_is_too_small() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(5, Variant::V3, TwoBit, rng);
+    let mut method = v3_builder().with_pivot(5).build()?;
 
     let stego_text = method.try_conceal(TINY_TEXT, &mut data_input.iter());
 
@@ -211,8 +208,7 @@ fn errors_when_cover_is_too_small() -> Result<(), Box<dyn Error>> {
 #[test]
 fn errors_when_too_few_words() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(10, Variant::V3, TwoBit, rng);
+    let mut method = v3_builder().with_pivot(10).build()?;
 
     let stego_text = method.try_conceal(ONE_WORD_TEXT, &mut data_input.iter());
 
@@ -223,8 +219,7 @@ fn errors_when_too_few_words() -> Result<(), Box<dyn Error>> {
 #[test]
 fn errors_when_cover_is_empty() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng = StepRng::new(1, 1);
-    let mut method = get_method(5, Variant::V3, TwoBit, rng);
+    let mut method = v3_builder().with_pivot(5).build()?;
 
     let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_input.iter());
 
