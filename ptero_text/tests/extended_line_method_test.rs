@@ -1,6 +1,13 @@
+use rand::RngCore;
+
+use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+use ptero_text::extended_line_method::character_sets::GetCharacterSet;
+
+#[cfg(test)]
 mod one_bit_test;
+
+#[cfg(test)]
 mod two_bit_test;
-mod builder_test;
 
 const SINGLE_CHAR_TEXT: &str = "a b ca b ca b ca b ca b c";
 const WITH_WORDS_TEXT: &str =
@@ -19,3 +26,22 @@ const HTML_TEXT: &str = "<div> \
 const TINY_TEXT: &str = "TI NY COVER";
 const ONE_WORD_TEXT: &str = "Words.";
 const EMPTY_TEXT: &str = "";
+
+pub(crate) fn get_method<T, CS>(
+    pivot: usize,
+    variant: Variant,
+    charset: CS,
+    rng: T,
+) -> ExtendedLineMethod
+where
+    T: RngCore + 'static,
+    CS: GetCharacterSet + 'static,
+{
+    ExtendedLineMethod::builder()
+        .with_pivot(pivot)
+        .with_rng(rng)
+        .with_variant(variant)
+        .with_trailing_charset(charset)
+        .build()
+        .unwrap()
+}

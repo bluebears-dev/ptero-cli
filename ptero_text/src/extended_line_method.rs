@@ -129,13 +129,12 @@ use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
-use derive_builder::UninitializedFieldError;
 use rand::RngCore;
-use snafu::{ErrorCompat, ResultExt, Snafu};
+use snafu::Snafu;
 use unicode_segmentation::UnicodeSegmentation;
 
 use ptero_common::config::{
-    CommonMethodConfig, CommonMethodConfigBuilder, CommonMethodConfigBuilderError,
+    CommonMethodConfig, CommonMethodConfigBuilder,
 };
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
 use ptero_common::observer::{Observable, Observer};
@@ -143,13 +142,13 @@ use ptero_common::observer::{Observable, Observer};
 use crate::extended_line_method::character_sets::GetCharacterSet;
 
 use self::line_extend_method::{
-    LineExtendMethod, LineExtendMethodBuilder, LineExtendMethodBuilderError,
+    LineExtendMethod, LineExtendMethodBuilder,
 };
 use self::random_whitespace_method::{
-    RandomWhitespaceMethod, RandomWhitespaceMethodBuilder, RandomWhitespaceMethodBuilderError,
+    RandomWhitespaceMethod, RandomWhitespaceMethodBuilder,
 };
 use self::trailing_whitespace_method::{
-    TrailingWhitespaceMethod, TrailingWhitespaceMethodBuilder, TrailingWhitespaceMethodBuilderError,
+    TrailingWhitespaceMethod, TrailingWhitespaceMethodBuilder,
 };
 
 const NEWLINE_STR: &str = "\n";
@@ -615,4 +614,57 @@ impl Display for CoverTooSmallErrorReason {
             }
         }
     }
+}
+
+#[cfg(test)]
+mod test {
+    use rand::rngs::mock::StepRng;
+
+    use crate::extended_line_method::character_sets::CharacterSetType;
+
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "Couldn't finish building ExtendedLineMethod: `rng` must be initialized")]
+    fn errors_when_rng_not_provided() {
+        let builder = ExtendedLineMethod::builder()
+            .with_trailing_charset(CharacterSetType::OneBit)
+            .with_pivot(20)
+            .with_variant(Variant::V1);
+
+        if let Err(e) = builder.build() {
+            panic!("{}", e);
+        }
+    }
+
+    #[test]
+    fn has_default_pivot_provided() {
+        ExtendedLineMethod::builder()
+            .with_rng(StepRng::new(1, 1))
+            .with_trailing_charset(CharacterSetType::OneBit)
+            .with_variant(Variant::V1)
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    fn has_default_charset_provided() {
+        ExtendedLineMethod::builder()
+            .with_rng(StepRng::new(1, 1))
+            .with_pivot(20)
+            .with_variant(Variant::V1)
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    fn has_default_variant_provided() {
+        ExtendedLineMethod::builder()
+            .with_rng(StepRng::new(1, 1))
+            .with_trailing_charset(CharacterSetType::OneBit)
+            .with_pivot(20)
+            .build()
+            .unwrap();
+    }
+
 }

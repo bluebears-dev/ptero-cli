@@ -18,7 +18,7 @@ pub(crate) type VerificationResult = std::result::Result<(), ConcealError>;
 
 #[derive(Builder)]
 pub struct LineExtendMethod {
-    #[builder(private, setter(into))]
+    #[builder(private)]
     config_ref: Weak<RefCell<CommonMethodConfig>>,
     #[builder(setter(into, prefix = "with"), default = "DEFAULT_PIVOT")]
     pivot: usize,
@@ -108,7 +108,7 @@ impl LineExtendMethod {
             .map(|word| graphemes_length(word))
             .sum();
         let bit = ext_line_length + expected_whitespace_amount > self.pivot;
-        println!("Found extended line: '{}'", bit);
+        trace!("Found extended line: '{}'", bit);
         revealed_data.push(bit)
     }
 

@@ -1,15 +1,12 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::trace;
-use rand::RngCore;
 
-use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+use ptero_common::config::CommonMethodConfig;
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
 
@@ -19,7 +16,7 @@ impl TrailingWhitespaceMethodBuilder {
         self
     }
 
-    pub fn with_charset<T>(mut self, charset: T) -> Self where T: GetCharacterSet + 'static {
+    pub(crate) fn with_charset<T>(mut self, charset: T) -> Self where T: GetCharacterSet + 'static {
         self.charset = Some(Box::new(charset));
         self
     }
@@ -28,7 +25,7 @@ impl TrailingWhitespaceMethodBuilder {
 #[derive(Builder)]
 #[builder(pattern = "owned")]
 pub struct TrailingWhitespaceMethod {
-    #[builder(private, setter(into))]
+    #[builder(private)]
     config_ref: Weak<RefCell<CommonMethodConfig>>,
     #[builder(
         private,

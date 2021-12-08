@@ -24,7 +24,7 @@ impl RandomWhitespaceMethodBuilder {
 
 #[derive(Builder)]
 pub struct RandomWhitespaceMethod {
-    #[builder(private, setter(into))]
+    #[builder(private)]
     config_ref: Weak<RefCell<CommonMethodConfig>>,
     #[builder(
         setter(into, prefix = "with"),
