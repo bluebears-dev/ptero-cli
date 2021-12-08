@@ -1,7 +1,6 @@
-mod extended_line_method {
-    mod one_bit_test;
-    mod two_bit_test;
-}
+mod one_bit_test;
+mod two_bit_test;
+mod builder_test;
 
 const SINGLE_CHAR_TEXT: &str = "a b ca b ca b ca b ca b c";
 const WITH_WORDS_TEXT: &str =

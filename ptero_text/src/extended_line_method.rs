@@ -16,12 +16,13 @@
 //! use ptero_common::method::SteganographyMethod;
 //! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
 //!
-//! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
+//! let rng = StdRng::seed_from_u64(1337);
 //! let cover_text = "This is a sample text that is harmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
-//!     .with_rng(rng.clone())
+//!     .with_rng(rng)
 //!     .with_pivot(11)
-//!     .build();
+//!     .build()
+//!     .unwrap();
 //!
 //! let data = "E";
 //! let mut data_bit_iter = data.as_bits::<Msb0>().iter();
@@ -45,12 +46,13 @@
 //! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
 //!
 //! // The RNG must be seeded with the same value as used when concealing
-//! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
+//! let rng = StdRng::seed_from_u64(1337);
 //! let stego_text = "This  is a\nsample text \nthat  is\nharmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
-//!     .with_rng(rng.clone())
+//!     .with_rng(rng)
 //!     .with_pivot(11)
-//!     .build();
+//!     .build()
+//!     .unwrap();
 //!
 //! if let Ok(bits) = ext_line_method.try_reveal::<Msb0, u8>(stego_text) {
 //!     // Most often you'll get your data with trailing noise (probably zeroes)
@@ -97,12 +99,13 @@
 //! }
 //!
 //! // The RNG must be seeded with the same value as used when concealing
-//! let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::seed_from_u64(1337)));
+//! let rng = StdRng::seed_from_u64(1337);
 //! let cover_text = "This is a sample text that is harmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
-//!     .with_rng(rng.clone())
+//!     .with_rng(rng)
 //!     .with_pivot(11)
-//!     .build();
+//!     .build()
+//!     .unwrap();
 //!
 //! let listener_arc = Arc::new(RefCell::new(Listener::new()));
 //! ext_line_method.subscribe(listener_arc.clone());
@@ -118,6 +121,7 @@
 //! # Description
 //! TBD
 use std::cell::RefCell;
+use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
 use std::rc::Rc;
@@ -125,20 +129,28 @@ use std::sync::Arc;
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
+use derive_builder::UninitializedFieldError;
 use rand::RngCore;
-use snafu::Snafu;
+use snafu::{ErrorCompat, ResultExt, Snafu};
 use unicode_segmentation::UnicodeSegmentation;
 
+use ptero_common::config::{
+    CommonMethodConfig, CommonMethodConfigBuilder, CommonMethodConfigBuilderError,
+};
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
-use ptero_common::observer::Observer;
+use ptero_common::observer::{Observable, Observer};
 
 use crate::extended_line_method::character_sets::GetCharacterSet;
-use crate::extended_line_method::line_extend_method::{LineExtendMethod, LineExtendMethodBuilder};
-use crate::extended_line_method::random_whitespace_method::RandomWhitespaceMethodBuilder;
-use crate::extended_line_method::trailing_whitespace_method::TrailingWhitespaceMethodBuilder;
 
-use self::random_whitespace_method::RandomWhitespaceMethod;
-use self::trailing_whitespace_method::TrailingWhitespaceMethod;
+use self::line_extend_method::{
+    LineExtendMethod, LineExtendMethodBuilder, LineExtendMethodBuilderError,
+};
+use self::random_whitespace_method::{
+    RandomWhitespaceMethod, RandomWhitespaceMethodBuilder, RandomWhitespaceMethodBuilderError,
+};
+use self::trailing_whitespace_method::{
+    TrailingWhitespaceMethod, TrailingWhitespaceMethodBuilder, TrailingWhitespaceMethodBuilderError,
+};
 
 const NEWLINE_STR: &str = "\n";
 
@@ -169,24 +181,24 @@ pub enum Variant {
     /// Triggers submethods in given order:
     ///
     /// Random Whitespace, Line Extension, Trailing Whitespace
-    V3
+    V3,
 }
 
-/// Builder for [`ExtendedLineMethod`] algorithm.
-/// It enables you to configure the method to your use case.
 pub struct ExtendedLineMethodBuilder {
     rw_submethod_builder: RandomWhitespaceMethodBuilder,
     tw_submethod_builder: TrailingWhitespaceMethodBuilder,
     le_submethod_builder: LineExtendMethodBuilder,
+    config_builder: CommonMethodConfigBuilder,
     variant: Variant,
 }
 
 impl<'a> Default for ExtendedLineMethodBuilder {
     fn default() -> Self {
         ExtendedLineMethodBuilder {
-            rw_submethod_builder: RandomWhitespaceMethodBuilder::new(),
-            tw_submethod_builder: TrailingWhitespaceMethodBuilder::new(),
-            le_submethod_builder: LineExtendMethodBuilder::new(),
+            rw_submethod_builder: RandomWhitespaceMethod::builder(),
+            tw_submethod_builder: TrailingWhitespaceMethod::builder(),
+            le_submethod_builder: LineExtendMethod::builder(),
+            config_builder: CommonMethodConfig::builder(),
             variant: Variant::V1,
         }
     }
@@ -194,10 +206,11 @@ impl<'a> Default for ExtendedLineMethodBuilder {
 
 impl ExtendedLineMethodBuilder {
     /// Set custom RNG for method.
-    pub fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
-        self.rw_submethod_builder = self.rw_submethod_builder.with_rng(rng.clone());
-        self.tw_submethod_builder = self.tw_submethod_builder.with_rng(rng.clone());
-        self.le_submethod_builder = self.le_submethod_builder.with_rng(rng);
+    pub fn with_rng<T>(mut self, rng: T) -> Self
+    where
+        T: RngCore + 'static,
+    {
+        self.config_builder = self.config_builder.with_rng(rng);
         self
     }
 
@@ -209,10 +222,10 @@ impl ExtendedLineMethodBuilder {
     /// By manipulating this value, you can increase bitrate of the method, maximum being 7 bits
     /// per cycle.
     pub fn with_trailing_charset<T>(mut self, character_set: T) -> Self
-        where
-            T: GetCharacterSet + 'static,
+    where
+        T: GetCharacterSet + 'static,
     {
-        self.tw_submethod_builder = self.tw_submethod_builder.with_character_set(character_set);
+        self.tw_submethod_builder = self.tw_submethod_builder.with_charset(character_set);
         self
     }
 
@@ -224,7 +237,7 @@ impl ExtendedLineMethodBuilder {
 
     /// Set pivot
     pub fn with_pivot(mut self, pivot: usize) -> Self {
-        self.le_submethod_builder = self.le_submethod_builder.with_pivot(pivot);
+        self.le_submethod_builder.with_pivot(pivot);
         self
     }
 
@@ -242,9 +255,9 @@ impl ExtendedLineMethodBuilder {
     /// use rand::rngs::StdRng;
     /// use ptero_text::extended_line_method::{ExtendedLineMethodBuilder, Variant};
     ///
-    /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StdRng::from_entropy()));
+    /// let rng = StdRng::from_entropy();
     /// let method = ExtendedLineMethodBuilder::default()
-    ///     .with_rng(rng.clone())
+    ///     .with_rng(rng)
     ///     .build();
     /// ```
     ///
@@ -257,20 +270,43 @@ impl ExtendedLineMethodBuilder {
     /// use rand::rngs::mock::StepRng;
     /// use ptero_text::extended_line_method::{ExtendedLineMethodBuilder, Variant};
     ///
-    /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
+    /// let rng = StepRng::new(1, 1);
     /// let method = ExtendedLineMethodBuilder::default()
-    ///     .with_rng(rng.clone())
+    ///     .with_rng(rng)
     ///     .with_variant(Variant::V2)
     ///     .with_pivot(20)
     ///     .build();
     /// ```
-    pub fn build(self) -> ExtendedLineMethod {
-        ExtendedLineMethod {
-            rw_submethod: self.rw_submethod_builder.build(),
-            tw_submethod: self.tw_submethod_builder.build(),
-            le_submethod: self.le_submethod_builder.build(),
+    pub fn build(self) -> std::result::Result<ExtendedLineMethod, BuilderError> {
+        let config = self
+            .config_builder
+            .build()
+            .map_err(|source| {
+                BuilderError { source: source.into() }
+            })?;
+
+        let config_rc = Rc::new(RefCell::new(config));
+
+        // Refactor to return result like other builders
+        Ok(ExtendedLineMethod {
+            rw_submethod: self
+                .rw_submethod_builder
+                .with_shared_config(config_rc.clone())
+                .build()
+                .map_err(|source| BuilderError { source: source.into() })?,
+            tw_submethod: self
+                .tw_submethod_builder
+                .with_shared_config(config_rc.clone())
+                .build()
+                .map_err(|source| BuilderError { source: source.into() })?,
+            le_submethod: self
+                .le_submethod_builder
+                .with_shared_config(config_rc.clone())
+                .build()
+                .map_err(|source| BuilderError { source: source.into() })?,
+            config: config_rc,
             variant: self.variant,
-        }
+        })
     }
 }
 
@@ -294,6 +330,12 @@ pub(crate) fn get_variant_methods(variant: &Variant) -> &'static [MethodActions;
     }
 }
 
+#[derive(Debug, Snafu)]
+#[snafu(display("Couldn't finish building ExtendedLineMethod: {}", source))]
+pub struct BuilderError {
+    source: Box<dyn Error>
+}
+
 fn graphemes_length(text: &str) -> usize {
     text.graphemes(true).count()
 }
@@ -303,6 +345,7 @@ pub type Result<Success> = std::result::Result<Success, ConcealError>;
 /// The main structure describing internal state for the Extended Line method.
 pub struct ExtendedLineMethod {
     variant: Variant,
+    config: Rc<RefCell<CommonMethodConfig>>,
     rw_submethod: RandomWhitespaceMethod,
     tw_submethod: TrailingWhitespaceMethod,
     le_submethod: LineExtendMethod,
@@ -322,7 +365,7 @@ impl ExtendedLineMethod {
     /// use rand::rngs::mock::StepRng;
     /// use ptero_text::extended_line_method::ExtendedLineMethod;
     ///
-    /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
+    /// let rng = StepRng::new(1, 1);
     /// let method = ExtendedLineMethod::builder()
     ///     .with_rng(rng.clone())
     ///     .with_pivot(20)
@@ -338,7 +381,7 @@ impl ExtendedLineMethod {
     /// use ptero_text::extended_line_method::character_sets::CharacterSetType;
     /// use ptero_text::extended_line_method::ExtendedLineMethod;
     ///
-    /// let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
+    /// let rng = StepRng::new(1, 1);
     /// let method = ExtendedLineMethod::builder()
     ///     .with_rng(rng.clone())
     ///     .with_pivot(10)
@@ -350,9 +393,7 @@ impl ExtendedLineMethod {
     }
 
     pub fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
-        self.tw_submethod.subscribe(subscriber.clone());
-        self.rw_submethod.subscribe(subscriber.clone());
-        self.le_submethod.subscribe(subscriber);
+        self.config.borrow_mut().notifier.subscribe(subscriber);
     }
 
     fn notify(&mut self, event: &MethodProgressStatus) {
@@ -393,9 +434,9 @@ impl ExtendedLineMethod {
                 MethodActions::RandomASCIIWhitespace => {
                     self.rw_submethod.conceal_in_random_whitespace(data, result)
                 }
-                MethodActions::TrailingASCIIWhitespace => {
-                    Ok(self.tw_submethod.conceal_in_trailing_whitespace(data, result))
-                }
+                MethodActions::TrailingASCIIWhitespace => Ok(self
+                    .tw_submethod
+                    .conceal_in_trailing_whitespace(data, result)),
             };
 
             if let MethodResult::NoDataLeft = method_result? {

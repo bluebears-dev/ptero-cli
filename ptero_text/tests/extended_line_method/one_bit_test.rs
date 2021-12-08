@@ -13,20 +13,23 @@ use rstest_reuse;
 
 use ptero_common::method::SteganographyMethod;
 use ptero_text::extended_line_method::{ConcealError, ExtendedLineMethod, Variant};
+use ptero_text::extended_line_method::character_sets::CharacterSetType::OneBit;
 
-use crate::*;
+use crate::extended_line_method::*;
 
-pub(crate) fn get_method(
-    pivot: usize,
-    variant: Variant,
-    rng: Rc<RefCell<dyn RngCore>>,
-) -> ExtendedLineMethod {
+pub(crate) fn get_method<T>(pivot: usize, variant: Variant, rng: T) -> ExtendedLineMethod
+    where
+        T: RngCore + 'static,
+{
     ExtendedLineMethod::builder()
         .with_pivot(pivot)
         .with_rng(rng)
         .with_variant(variant)
+        .with_trailing_charset(OneBit)
         .build()
+        .unwrap()
 }
+
 
 #[rstest]
 #[case(4, 97u8, SINGLE_CHAR_TEXT, "a  b \nca b\nca  b\nca b\nca b\nc")]
@@ -42,8 +45,8 @@ fn conceals_data_variant_1<T>(
     #[case] expected: &str,
 ) -> Result<(), Box<dyn Error>>
 where T: BitStore {
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(pivot, Variant::V1, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(pivot, Variant::V1, rng);
     let stego_text = method.try_conceal(cover, &mut data.view_bits::<Msb0>().iter())?;
 
     assert_eq!(stego_text, expected);
@@ -64,8 +67,8 @@ fn conceals_data_variant_2<T>(
     #[case] expected: &str,
 ) -> Result<(), Box<dyn Error>>
 where T: BitStore {
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(pivot, Variant::V2, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(pivot, Variant::V2, rng);
     let stego_text = method.try_conceal(cover, &mut data.view_bits::<Msb0>().iter())?;
 
     assert_eq!(stego_text, expected);
@@ -86,8 +89,8 @@ fn conceals_data_variant_3<T>(
     #[case] expected: &str,
 ) -> Result<(), Box<dyn Error>>
 where T: BitStore {
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(pivot, Variant::V3, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(pivot, Variant::V3, rng);
     let stego_text = method.try_conceal(cover, &mut data.view_bits::<Msb0>().iter())?;
 
     assert_eq!(stego_text, expected);
@@ -121,8 +124,8 @@ fn reveals_data_variant_1(
     #[case] expected: &[u8],
     #[case] expected_bit_len: usize
 ) -> Result<(), Box<dyn Error>> {
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(pivot, Variant::V1, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(pivot, Variant::V1, rng);
     let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
 
     assert_eq!(data.len(), expected_bit_len);
@@ -143,8 +146,8 @@ fn reveals_data_variant_2(
     #[case] expected: &[u8],
     #[case] expected_bit_len: usize
 ) -> Result<(), Box<dyn Error>> {
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(pivot, Variant::V2, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(pivot, Variant::V2, rng);
     let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
 
     assert_eq!(data.len(), expected_bit_len);
@@ -165,8 +168,8 @@ fn reveals_data_variant_3(
     #[case] expected: &[u8],
     #[case] expected_bit_len: usize
 ) -> Result<(), Box<dyn Error>> {
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(pivot, Variant::V3, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(pivot, Variant::V3, rng);
     let data: BitVec<Msb0, u8> = method.try_reveal(stego_text)?;
 
     assert_eq!(data.len(), expected_bit_len);
@@ -178,8 +181,8 @@ fn reveals_data_variant_3(
 #[test]
 fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
     let data_input: Vec<u8> = vec![0b0];
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(8, Variant::V1, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(8, Variant::V1, rng);
 
     let stego_text =
         method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
@@ -194,8 +197,8 @@ fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
 #[test]
 fn errors_when_cover_contains_word_longer_than_pivot() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(2, Variant::V1, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(2, Variant::V1, rng);
 
     let stego_text = method.try_conceal(WITH_WORDS_TEXT, &mut data_input.iter());
 
@@ -209,8 +212,8 @@ fn errors_when_cover_contains_word_longer_than_pivot() -> Result<(), Box<dyn Err
 #[test]
 fn errors_when_cover_is_too_small() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(5, Variant::V3, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(5, Variant::V3, rng);
 
     let stego_text = method.try_conceal(TINY_TEXT, &mut data_input.iter());
 
@@ -221,8 +224,8 @@ fn errors_when_cover_is_too_small() -> Result<(), Box<dyn Error>> {
 #[test]
 fn errors_when_too_few_words() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(10, Variant::V3, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(10, Variant::V3, rng);
 
     let stego_text = method.try_conceal(ONE_WORD_TEXT, &mut data_input.iter());
 
@@ -233,8 +236,8 @@ fn errors_when_too_few_words() -> Result<(), Box<dyn Error>> {
 #[test]
 fn errors_when_cover_is_empty() -> Result<(), Box<dyn Error>> {
     let data_input = bitvec![1; 8];
-    let rng: Rc<RefCell<dyn RngCore>> = Rc::new(RefCell::new(StepRng::new(1, 1)));
-    let mut method = get_method(5, Variant::V3, rng.clone());
+    let rng = StepRng::new(1, 1);
+    let mut method = get_method(5, Variant::V3, rng);
 
     let stego_text = method.try_conceal(EMPTY_TEXT, &mut data_input.iter());
 

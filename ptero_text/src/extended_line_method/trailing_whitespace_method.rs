@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 use bitvec::prelude::*;
@@ -13,63 +13,47 @@ use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::character_sets::{CharacterSetType, GetCharacterSet};
 
-pub(crate) struct TrailingWhitespaceMethodBuilder {
-    config_builder: CommonMethodConfigBuilder,
-    character_set: Box<dyn GetCharacterSet>,
-}
-
 impl TrailingWhitespaceMethodBuilder {
-    pub(crate) fn new() -> Self {
-        TrailingWhitespaceMethodBuilder {
-            config_builder: CommonMethodConfig::builder(),
-            character_set: Box::new(CharacterSetType::OneBit),
-        }
-    }
-
-    /// Sets custom character set. See [`GetCharacterSet`] and [`CharacterSet`] for more info.
-    pub(crate) fn with_character_set<T>(mut self, character_set: T) -> Self
-    where
-        T: GetCharacterSet + 'static,
-    {
-        self.character_set = Box::new(character_set);
+    pub(crate) fn with_shared_config(mut self, config: Rc<RefCell<CommonMethodConfig>>) -> Self {
+        self.config_ref = Some(Rc::downgrade(&config));
         self
     }
 
-    /// Set custom RNG for method.
-    pub(crate) fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
-        self.config_builder = self.config_builder.with_rng(rng);
+    pub fn with_charset<T>(mut self, charset: T) -> Self where T: GetCharacterSet + 'static {
+        self.charset = Some(Box::new(charset));
         self
-    }
-
-    pub(crate) fn build(self) -> TrailingWhitespaceMethod {
-        TrailingWhitespaceMethod {
-            config: self.config_builder.build().unwrap(),
-            character_set: self.character_set,
-        }
     }
 }
 
-pub(crate) struct TrailingWhitespaceMethod {
-    config: CommonMethodConfig,
-    character_set: Box<dyn GetCharacterSet>,
+#[derive(Builder)]
+#[builder(pattern = "owned")]
+pub struct TrailingWhitespaceMethod {
+    #[builder(private, setter(into))]
+    config_ref: Weak<RefCell<CommonMethodConfig>>,
+    #[builder(
+        private,
+        default = "Box::new(CharacterSetType::OneBit)"
+    )]
+    charset: Box<dyn GetCharacterSet>,
 }
 
 impl TrailingWhitespaceMethod {
     pub(crate) fn builder() -> TrailingWhitespaceMethodBuilder {
-        TrailingWhitespaceMethodBuilder::new()
-    }
-
-    pub(crate) fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
-        self.config.notifier.subscribe(subscriber);
+        TrailingWhitespaceMethodBuilder::default()
     }
 
     pub(crate) fn notify(&mut self, event: &MethodProgressStatus) {
-        self.config.notifier.notify(event);
+        let config = self
+            .config_ref
+            .upgrade()
+            .expect("Invalid config reference passed, cannot upgrade weak reference");
+
+        config.borrow_mut().notifier.notify(event);
     }
 
     fn bitrate(&self) -> usize {
         let amount_of_bits = std::mem::size_of::<usize>() * 8;
-        amount_of_bits - self.character_set.size().leading_zeros() as usize
+        amount_of_bits - self.charset.size().leading_zeros() as usize
     }
 
     fn assemble_charset_index(&self, next_bits: &BitSlice<Lsb0, usize>) -> usize {
@@ -104,7 +88,7 @@ impl TrailingWhitespaceMethod {
             charset_index
         );
 
-        if let Some(character) = self.character_set.get_character(charset_index) {
+        if let Some(character) = self.charset.get_character(charset_index) {
             trace!(
                 "Putting unicode character {:?} at the end of the line",
                 character
@@ -117,9 +101,7 @@ impl TrailingWhitespaceMethod {
         if next_n_bits.len() < bitrate {
             MethodResult::NoDataLeft
         } else {
-            self.config
-                .notifier
-                .notify(&MethodProgressStatus::DataWritten(bitrate as u64));
+            self.notify(&MethodProgressStatus::DataWritten(bitrate as u64));
             MethodResult::Success
         }
     }
@@ -133,11 +115,12 @@ impl TrailingWhitespaceMethod {
         Type: BitStore,
     {
         if let Some(last_char) = stego_text_line.chars().last() {
-            let decoded_number = self.character_set.character_to_bits(&last_char);
+            let decoded_number = self.charset.character_to_bits(&last_char);
 
             trace!(
                 "Found {:?} at the end of the line, decoded into {:b}",
-                &last_char, decoded_number
+                &last_char,
+                decoded_number
             );
 
             let data: &BitSlice<Msb0, usize> = BitSlice::from_element(&decoded_number);

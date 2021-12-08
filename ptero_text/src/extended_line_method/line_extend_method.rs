@@ -1,16 +1,13 @@
 use std::cell::RefCell;
 use std::iter::Peekable;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::rc::{Rc, Weak};
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::{debug, trace};
-use rand::RngCore;
 
-use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+use ptero_common::config::CommonMethodConfig;
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::{ConcealError, graphemes_length, Result};
 
@@ -19,56 +16,35 @@ const DEFAULT_PIVOT: usize = 20;
 
 pub(crate) type VerificationResult = std::result::Result<(), ConcealError>;
 
-pub(crate) struct LineExtendMethodBuilder {
-    config_builder: CommonMethodConfigBuilder,
+#[derive(Builder)]
+pub struct LineExtendMethod {
+    #[builder(private, setter(into))]
+    config_ref: Weak<RefCell<CommonMethodConfig>>,
+    #[builder(setter(into, prefix = "with"), default = "DEFAULT_PIVOT")]
     pivot: usize,
 }
 
 impl LineExtendMethodBuilder {
-    pub(crate) fn new() -> Self {
-        LineExtendMethodBuilder {
-            config_builder: CommonMethodConfigBuilder::default(),
-            pivot: DEFAULT_PIVOT,
-        }
-    }
-
-    /// Set custom RNG for method.
-    pub(crate) fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
-        self.config_builder = self.config_builder.with_rng(rng);
+    pub(crate) fn with_shared_config(mut self, config: Rc<RefCell<CommonMethodConfig>>) -> Self {
+        self.config_ref = Some(Rc::downgrade(&config));
         self
     }
-
-    pub(crate) fn with_pivot(mut self, pivot: usize) -> Self {
-        self.pivot = pivot;
-        self
-    }
-
-    pub(crate) fn build(self) -> LineExtendMethod {
-        LineExtendMethod {
-            config: self.config_builder.build().unwrap(),
-            pivot: self.pivot,
-        }
-    }
-}
-
-pub(crate) struct LineExtendMethod {
-    config: CommonMethodConfig,
-    pivot: usize,
 }
 
 impl LineExtendMethod {
     const CYCLE_BITRATE: u64 = 1;
 
     pub(crate) fn builder() -> LineExtendMethodBuilder {
-        LineExtendMethodBuilder::new()
-    }
-
-    pub(crate) fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
-        self.config.notifier.subscribe(subscriber);
+        LineExtendMethodBuilder::default()
     }
 
     pub(crate) fn notify(&mut self, event: &MethodProgressStatus) {
-        self.config.notifier.notify(event);
+        let config = self
+            .config_ref
+            .upgrade()
+            .expect("Invalid config reference passed, cannot upgrade weak reference");
+
+        config.borrow_mut().notifier.notify(event);
     }
 
     pub(crate) fn conceal_in_extended_line<'b, IteratorType, Order, Type>(
@@ -105,17 +81,13 @@ impl LineExtendMethod {
                 result.push_str(DEFAULT_ASCII_DELIMITER);
                 result.push_str(next_word);
 
-                self.config
-                    .notifier
-                    .notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
+                self.notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
 
                 MethodResult::Success
             }
             Some(false) => {
                 trace!("Leaving line as-is");
-                self.config
-                    .notifier
-                    .notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
+                self.notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
                 MethodResult::Success
             }
             None => MethodResult::NoDataLeft,
@@ -131,7 +103,8 @@ impl LineExtendMethod {
         Type: BitStore,
     {
         let expected_whitespace_amount = stego_text_line.split_whitespace().count() - 1;
-        let ext_line_length: usize = stego_text_line.split_whitespace()
+        let ext_line_length: usize = stego_text_line
+            .split_whitespace()
             .map(|word| graphemes_length(word))
             .sum();
         let bit = ext_line_length + expected_whitespace_amount > self.pivot;

@@ -1,57 +1,35 @@
 use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::rc::{Rc, Weak};
 
 use bitvec::prelude::*;
 use bitvec::slice::Iter;
 use log::trace;
-use rand::{Rng, RngCore};
+use rand::Rng;
 use unicode_segmentation::UnicodeSegmentation;
 
-use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
+use ptero_common::config::CommonMethodConfig;
 use ptero_common::method::{MethodProgressStatus, MethodResult};
-use ptero_common::observer::{EventNotifier, Observable, Observer};
 
 use crate::extended_line_method::{ConcealError, Result};
 
 const DEFAULT_ASCII_DELIMITER: &str = " ";
 const NEWLINE_STR: &str = "\n";
 
-pub(crate) struct RandomWhitespaceMethodBuilder {
-    config_builder: CommonMethodConfigBuilder,
-    whitespace_str: &'static str,
-}
-
 impl RandomWhitespaceMethodBuilder {
-    pub(crate) fn new() -> Self {
-        RandomWhitespaceMethodBuilder {
-            config_builder: CommonMethodConfig::builder(),
-            whitespace_str: DEFAULT_ASCII_DELIMITER,
-        }
-    }
-
-    /// Set custom RNG for method.
-    pub(crate) fn with_rng(mut self, rng: Rc<RefCell<dyn RngCore>>) -> Self {
-        self.config_builder = self.config_builder.with_rng(rng);
+    pub(crate) fn with_shared_config(mut self, config: Rc<RefCell<CommonMethodConfig>>) -> Self {
+        self.config_ref = Some(Rc::downgrade(&config));
         self
-    }
-
-    /// Set custom whitespace delimiter
-    pub(crate) fn with_custom_whitespace_str(mut self, whitespace_str: &'static str) -> Self {
-        self.whitespace_str = whitespace_str;
-        self
-    }
-
-    pub(crate) fn build(self) -> RandomWhitespaceMethod {
-        RandomWhitespaceMethod {
-            config: self.config_builder.build().unwrap(),
-            whitespace_str: self.whitespace_str,
-        }
     }
 }
 
-pub(crate) struct RandomWhitespaceMethod {
-    config: CommonMethodConfig,
+#[derive(Builder)]
+pub struct RandomWhitespaceMethod {
+    #[builder(private, setter(into))]
+    config_ref: Weak<RefCell<CommonMethodConfig>>,
+    #[builder(
+        setter(into, prefix = "with"),
+        default = "DEFAULT_ASCII_DELIMITER"
+    )]
     whitespace_str: &'static str,
 }
 
@@ -59,38 +37,16 @@ impl RandomWhitespaceMethod {
     const CYCLE_BITRATE: u64 = 1;
 
     pub(crate) fn builder() -> RandomWhitespaceMethodBuilder {
-        RandomWhitespaceMethodBuilder::new()
-    }
-
-    pub(crate) fn subscribe(&mut self, subscriber: Arc<RefCell<dyn Observer<MethodProgressStatus>>>) {
-        self.config.notifier.subscribe(subscriber);
+        RandomWhitespaceMethodBuilder::default()
     }
 
     pub(crate) fn notify(&mut self, event: &MethodProgressStatus) {
-        self.config.notifier.notify(event);
-    }
+        let config = self
+            .config_ref
+            .upgrade()
+            .expect("Invalid config reference passed, cannot upgrade weak reference");
 
-    fn find_approx_whitespace_position(
-        &mut self,
-        cover: &mut String,
-        last_newline_index: usize,
-    ) -> usize {
-        let rng = &*self.config.rng.upgrade().unwrap();
-        let approx_position = rng.borrow_mut().gen_range(last_newline_index..cover.len());
-
-        let last_line = &cover[last_newline_index..];
-        let mut position =
-            last_line.find(' ').unwrap_or_else(|| last_line.len()) + last_newline_index;
-
-        for (index, character) in last_line.char_indices() {
-            if index + last_newline_index > approx_position {
-                break;
-            }
-            if character.is_whitespace() && !NEWLINE_STR.contains(character) {
-                position = index + last_newline_index;
-            }
-        }
-        position
+        config.borrow_mut().notifier.notify(event);
     }
 
     pub(crate) fn conceal_in_random_whitespace<Order, Type>(
@@ -116,18 +72,14 @@ impl RandomWhitespaceMethod {
                 trace!("Putting space at position {}", position);
                 cover.insert_str(position, &String::from(self.whitespace_str));
 
-                self.config
-                    .notifier
-                    .notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
+                self.notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
 
                 MethodResult::Success
             }
             Some(false) => {
                 trace!("Skipping double whitespace");
 
-                self.config
-                    .notifier
-                    .notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
+                self.notify(&MethodProgressStatus::DataWritten(Self::CYCLE_BITRATE));
 
                 MethodResult::Success
             }
@@ -156,5 +108,41 @@ impl RandomWhitespaceMethod {
         }
         trace!("Found two consecutive whitespaces: {}", bit);
         revealed_data.push(bit);
+    }
+
+    fn find_approx_whitespace_position(
+        &mut self,
+        cover: &mut String,
+        last_newline_index: usize,
+    ) -> usize {
+        let approx_position = self.generate_random_position(last_newline_index, cover.len());
+
+        let last_line = &cover[last_newline_index..];
+        let mut position =
+            last_line.find(' ').unwrap_or_else(|| last_line.len()) + last_newline_index;
+
+        for (index, character) in last_line.char_indices() {
+            if index + last_newline_index > approx_position {
+                break;
+            }
+            if character.is_whitespace() && !NEWLINE_STR.contains(character) {
+                position = index + last_newline_index;
+            }
+        }
+        position
+    }
+
+    fn generate_random_position(
+        &mut self,
+        last_newline_index: usize,
+        cover_length: usize,
+    ) -> usize {
+        let config = self
+            .config_ref
+            .upgrade()
+            .expect("Invalid config reference passed, cannot upgrade weak reference");
+
+        let rng = &mut config.borrow_mut().rng;
+        rng.gen_range(last_newline_index..cover_length)
     }
 }
