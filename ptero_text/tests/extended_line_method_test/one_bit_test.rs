@@ -24,7 +24,8 @@ fn stego_text_loader() -> ResourceLoader {
     let dir_path = PathBuf::new()
         .join("resources")
         .join("stego_texts")
-        .join("extended_line");
+        .join("extended_line")
+        .join("one_bit");
 
     ResourceLoader::new(&dir_path)
 }
@@ -47,26 +48,26 @@ fn v3_builder() -> ExtendedLineMethodBuilder {
 #[rustfmt::skip]
 #[rstest]
 // Variant 1 test cases
-#[case::variant_1(v1_builder(), 4, 97u8, "single_char_short_text", "one_bit/single_char_short_text_variant_1")]
-#[case::variant_1(v1_builder(), 15, [121u8; 3], "single_char_long_text", "one_bit/single_char_long_text_variant_1")]
-#[case::variant_1(v1_builder(), 10, 255u8, "short_text", "one_bit/short_text_variant_1")]
-#[case::variant_1(v1_builder(), 20, [197u8; 18], "long_text", "one_bit/long_text_variant_1")]
-#[case::variant_1(v1_builder(), 20, [726u16; 2], "unicode_text", "one_bit/unicode_text_variant_1")]
-#[case::variant_1(v1_builder(), 28, 65542312u32, "html_text.html", "one_bit/html_text_variant_1.html")]
+#[case::variant_1(v1_builder(), 4, 97u8, "single_char_short_text", "single_char_short_text_variant_1")]
+#[case::variant_1(v1_builder(), 15, [121u8; 3], "single_char_long_text", "single_char_long_text_variant_1")]
+#[case::variant_1(v1_builder(), 10, 255u8, "short_text", "short_text_variant_1")]
+#[case::variant_1(v1_builder(), 20, [197u8; 18], "long_text", "long_text_variant_1")]
+#[case::variant_1(v1_builder(), 20, [726u16; 2], "unicode_text", "unicode_text_variant_1")]
+#[case::variant_1(v1_builder(), 28, 65542312u32, "html_text.html", "html_text_variant_1.html")]
 // Variant 2 test cases
-#[case::variant_2(v2_builder(), 4, 97u8, "single_char_short_text", "one_bit/single_char_short_text_variant_2")]
-#[case::variant_2(v2_builder(), 15, [121u8; 3], "single_char_long_text", "one_bit/single_char_long_text_variant_2")]
-#[case::variant_2(v2_builder(), 10, 255u8, "short_text", "one_bit/short_text_variant_2")]
-#[case::variant_2(v2_builder(), 20, [197u8; 18], "long_text", "one_bit/long_text_variant_2")]
-#[case::variant_2(v2_builder(), 20, [726u16; 2], "unicode_text", "one_bit/unicode_text_variant_2")]
-#[case::variant_2(v2_builder(), 28, 65542312u32, "html_text.html", "one_bit/html_text_variant_2.html")]
+#[case::variant_2(v2_builder(), 4, 97u8, "single_char_short_text", "single_char_short_text_variant_2")]
+#[case::variant_2(v2_builder(), 15, [121u8; 3], "single_char_long_text", "single_char_long_text_variant_2")]
+#[case::variant_2(v2_builder(), 10, 255u8, "short_text", "short_text_variant_2")]
+#[case::variant_2(v2_builder(), 20, [197u8; 18], "long_text", "long_text_variant_2")]
+#[case::variant_2(v2_builder(), 20, [726u16; 2], "unicode_text", "unicode_text_variant_2")]
+#[case::variant_2(v2_builder(), 28, 65542312u32, "html_text.html", "html_text_variant_2.html")]
 // Variant 3 test cases
-#[case::variant_3(v3_builder(), 4, 97u8, "single_char_short_text", "one_bit/single_char_short_text_variant_3")]
-#[case::variant_3(v3_builder(), 15, [121u8; 3], "single_char_long_text", "one_bit/single_char_long_text_variant_3")]
-#[case::variant_3(v3_builder(), 10, 255u8, "short_text", "one_bit/short_text_variant_3")]
-#[case::variant_3(v3_builder(), 20, [197u8; 18], "long_text", "one_bit/long_text_variant_3")]
-#[case::variant_3(v3_builder(), 20, [726u16; 2], "unicode_text", "one_bit/unicode_text_variant_3")]
-#[case::variant_3(v3_builder(), 30, [231u8; 3], "html_text.html", "one_bit/html_text_variant_3.html")]
+#[case::variant_3(v3_builder(), 4, 97u8, "single_char_short_text", "single_char_short_text_variant_3")]
+#[case::variant_3(v3_builder(), 15, [121u8; 3], "single_char_long_text", "single_char_long_text_variant_3")]
+#[case::variant_3(v3_builder(), 10, 255u8, "short_text", "short_text_variant_3")]
+#[case::variant_3(v3_builder(), 20, [197u8; 18], "long_text", "long_text_variant_3")]
+#[case::variant_3(v3_builder(), 20, [726u16; 2], "unicode_text", "unicode_text_variant_3")]
+#[case::variant_3(v3_builder(), 30, [231u8; 3], "html_text.html", "html_text_variant_3.html")]
 fn conceals_data<T>(
     cover_text_loader: ResourceLoader,
     stego_text_loader: ResourceLoader,
@@ -95,49 +96,49 @@ where
 #[rustfmt::skip]
 #[rstest]
 // Variant 1 test cases
-#[case::variant_1(v1_builder(), 4, "one_bit/single_char_short_text_variant_1", &[97], 15 * 3)]
-#[case::variant_1(v1_builder(), 15, "one_bit/single_char_long_text_variant_1", &[121; 3], 38 * 3)]
-#[case::variant_1(v1_builder(), 10, "one_bit/short_text_variant_1", &[255], 12 * 3)]
-#[case::variant_1(v1_builder(), 20, "one_bit/long_text_variant_1", &[197; 18], 61 * 3)]
-#[case::variant_1(v1_builder(), 20, "one_bit/unicode_text_variant_1", &[2, 214, 2, 214], 24 * 3)]
-#[case::variant_1(v1_builder(), 28, "one_bit/html_text_variant_1.html", &[3, 232, 24, 168], 11 * 3)]
+#[case::variant_1(v1_builder(), 4, "single_char_short_text_variant_1", &[97], 15 * 3)]
+#[case::variant_1(v1_builder(), 15, "single_char_long_text_variant_1", &[121; 3], 38 * 3)]
+#[case::variant_1(v1_builder(), 10, "short_text_variant_1", &[255], 12 * 3)]
+#[case::variant_1(v1_builder(), 20, "long_text_variant_1", &[197; 18], 61 * 3)]
+#[case::variant_1(v1_builder(), 20, "unicode_text_variant_1", &[2, 214, 2, 214], 24 * 3)]
+#[case::variant_1(v1_builder(), 28, "html_text_variant_1.html", &[3, 232, 24, 168], 11 * 3)]
 // Variant 2 test cases
-#[case::variant_2(v2_builder(), 4, "one_bit/single_char_short_text_variant_2", &[97], 15 * 3)]
-#[case::variant_2(v2_builder(), 15, "one_bit/single_char_long_text_variant_2", &[121; 3], 38 * 3)]
-#[case::variant_2(v2_builder(), 10, "one_bit/short_text_variant_2", &[255], 12 * 3)]
-#[case::variant_2(v2_builder(), 20, "one_bit/long_text_variant_2", &[197; 18], 61 * 3)]
-#[case::variant_2(v2_builder(), 20, "one_bit/unicode_text_variant_2", &[2, 214, 2, 214], 24 * 3)]
-#[case::variant_2(v2_builder(), 28, "one_bit/html_text_variant_2.html", &[3, 232, 24, 168], 11 * 3)]
+#[case::variant_2(v2_builder(), 4, "single_char_short_text_variant_2", &[97], 15 * 3)]
+#[case::variant_2(v2_builder(), 15, "single_char_long_text_variant_2", &[121; 3], 38 * 3)]
+#[case::variant_2(v2_builder(), 10, "short_text_variant_2", &[255], 12 * 3)]
+#[case::variant_2(v2_builder(), 20, "long_text_variant_2", &[197; 18], 61 * 3)]
+#[case::variant_2(v2_builder(), 20, "unicode_text_variant_2", &[2, 214, 2, 214], 24 * 3)]
+#[case::variant_2(v2_builder(), 28, "html_text_variant_2.html", &[3, 232, 24, 168], 11 * 3)]
 // Variant 3 test cases
-#[case::variant_3(v3_builder(), 4, "one_bit/single_char_short_text_variant_3", &[97], 14 * 3)]
-#[case::variant_3(v3_builder(), 15, "one_bit/single_char_long_text_variant_3", &[121; 3], 38 * 3)]
-#[case::variant_3(v3_builder(), 10, "one_bit/short_text_variant_3", &[255], 12 * 3)]
-#[case::variant_3(v3_builder(), 20, "one_bit/long_text_variant_3", &[197; 18], 63 * 3)]
-#[case::variant_3(v3_builder(), 20, "one_bit/unicode_text_variant_3", &[2, 214, 2, 214], 26 * 3)]
-#[case::variant_3(v3_builder(), 30, "one_bit/html_text_variant_3.html", &[231; 3], 9 * 3)]
+#[case::variant_3(v3_builder(), 4, "single_char_short_text_variant_3", &[97], 14 * 3)]
+#[case::variant_3(v3_builder(), 15, "single_char_long_text_variant_3", &[121; 3], 38 * 3)]
+#[case::variant_3(v3_builder(), 10, "short_text_variant_3", &[255], 12 * 3)]
+#[case::variant_3(v3_builder(), 20, "long_text_variant_3", &[197; 18], 63 * 3)]
+#[case::variant_3(v3_builder(), 20, "unicode_text_variant_3", &[2, 214, 2, 214], 26 * 3)]
+#[case::variant_3(v3_builder(), 30, "html_text_variant_3.html", &[231; 3], 9 * 3)]
 // Additional tests - non-matching stego texts variants
 #[case::non_matching(
-    v1_builder(), 7, "one_bit/long_text_variant_2",
+    v1_builder(), 7, "long_text_variant_2",
     &[187, 203, 230, 187, 203, 230, 187, 203, 230, 187, 203, 230, 187, 203, 230, 187, 203, 230, 146, 73, 36, 146, 72], 61 * 3
 )]
 #[case::non_matching(
-    v1_builder(), 7, "one_bit/long_text_variant_3",
+    v1_builder(), 7, "long_text_variant_3",
     &[214, 233, 231, 214, 233, 231, 214, 233, 231, 214, 233, 231, 214, 233, 231, 214, 233, 231, 146, 73, 36, 146, 73, 32], 63 * 3
 )]
 #[case::non_matching(
-    v2_builder(), 7, "one_bit/long_text_variant_1",
+    v2_builder(), 7, "long_text_variant_1",
     &[187, 203, 230, 187, 203, 230, 187, 203, 230, 187, 203, 230, 187, 203, 230, 187, 203, 230, 146, 73, 36, 146, 72], 61 * 3
 )]
 #[case::non_matching(
-v2_builder(), 7, "one_bit/long_text_variant_3",
+v2_builder(), 7, "long_text_variant_3",
     &[187, 89, 231, 187, 89, 231, 187, 89, 231, 187, 89, 231, 187, 89, 231, 187, 89, 231, 146, 73, 36, 146, 73, 32], 63 * 3
 )]
 #[case::non_matching(
-    v3_builder(), 7, "one_bit/long_text_variant_1",
+    v3_builder(), 7, "long_text_variant_1",
     &[207, 173, 211, 207, 173, 211, 207, 173, 211, 207, 173, 211, 207, 173, 211, 207, 173, 211, 73, 36, 146, 73, 36], 61 * 3
 )]
 #[case::non_matching(
-    v3_builder(), 7, "one_bit/long_text_variant_2",
+    v3_builder(), 7, "long_text_variant_2",
     &[123, 167, 214, 123, 167, 214, 123, 167, 214, 123, 167, 214, 123, 167, 214, 123, 167, 214, 73, 36, 146, 73, 36], 61 * 3
 )]
 fn reveals_data(
