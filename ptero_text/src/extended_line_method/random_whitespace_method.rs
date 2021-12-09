@@ -11,9 +11,9 @@ use ptero_common::config::CommonMethodConfig;
 use ptero_common::method::{MethodProgressStatus, MethodResult};
 
 use crate::extended_line_method::{ConcealError, Result};
+use crate::line_separator::{DEFAULT_LINE_SEPARATOR, LineSeparatorType};
 
 const DEFAULT_ASCII_DELIMITER: &str = " ";
-const NEWLINE_STR: &str = "\n";
 
 impl RandomWhitespaceMethodBuilder {
     pub(crate) fn with_shared_config(mut self, config: Rc<RefCell<CommonMethodConfig>>) -> Self {
@@ -23,6 +23,7 @@ impl RandomWhitespaceMethodBuilder {
 }
 
 #[derive(Builder)]
+#[builder(pattern = "owned")]
 pub struct RandomWhitespaceMethod {
     #[builder(private)]
     config_ref: Weak<RefCell<CommonMethodConfig>>,
@@ -31,6 +32,11 @@ pub struct RandomWhitespaceMethod {
         default = "DEFAULT_ASCII_DELIMITER"
     )]
     whitespace_str: &'static str,
+    #[builder(
+        setter(into, name = "with_line_separator"),
+        default = "DEFAULT_LINE_SEPARATOR"
+    )]
+    line_separator_type: LineSeparatorType,
 }
 
 impl RandomWhitespaceMethod {
@@ -58,10 +64,12 @@ impl RandomWhitespaceMethod {
         Order: BitOrder,
         Type: BitStore,
     {
+        let line_separator = self.line_separator_type.separator();
         Ok(match data.next().as_deref() {
             Some(true) => {
-                let last_newline_index =
-                    cover.rfind(NEWLINE_STR).map(|index| index + 1).unwrap_or(0);
+                let last_newline_index = cover.rfind(line_separator)
+                    .map(|index| index + line_separator.len())
+                    .unwrap_or(0);
 
                 let position = self.find_approx_whitespace_position(cover, last_newline_index);
 
@@ -116,16 +124,17 @@ impl RandomWhitespaceMethod {
         last_newline_index: usize,
     ) -> usize {
         let approx_position = self.generate_random_position(last_newline_index, cover.len());
+        let line_separator = self.line_separator_type.separator();
 
         let last_line = &cover[last_newline_index..];
         let mut position =
             last_line.find(' ').unwrap_or_else(|| last_line.len()) + last_newline_index;
 
-        for (index, character) in last_line.char_indices() {
+        for (index, cluster) in last_line.grapheme_indices(true) {
             if index + last_newline_index > approx_position {
                 break;
             }
-            if character.is_whitespace() && !NEWLINE_STR.contains(character) {
+            if cluster.contains(char::is_whitespace) && cluster != line_separator {
                 position = index + last_newline_index;
             }
         }

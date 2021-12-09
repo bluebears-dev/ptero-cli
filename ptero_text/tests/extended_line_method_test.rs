@@ -2,6 +2,7 @@ use rand::RngCore;
 
 use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
 use ptero_text::extended_line_method::character_sets::GetCharacterSet;
+use ptero_text::line_separator::LineSeparatorType;
 
 #[cfg(test)]
 mod one_bit_test;
@@ -40,6 +41,7 @@ where
     ExtendedLineMethod::builder()
         .with_pivot(pivot)
         .with_rng(rng)
+        .with_line_separator(LineSeparatorType::Unix)
         .with_variant(variant)
         .with_trailing_charset(charset)
         .build()

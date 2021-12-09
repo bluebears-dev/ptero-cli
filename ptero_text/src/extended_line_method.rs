@@ -15,12 +15,14 @@
 //! use rand::rngs::StdRng;
 //! use ptero_common::method::SteganographyMethod;
 //! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+//! use ptero_text::line_separator::LineSeparatorType;
 //!
 //! let rng = StdRng::seed_from_u64(1337);
 //! let cover_text = "This is a sample text that is harmless";
 //! let mut ext_line_method = ExtendedLineMethod::builder()
 //!     .with_rng(rng)
 //!     .with_pivot(11)
+//!     .with_line_separator(LineSeparatorType::Unix)
 //!     .build()
 //!     .unwrap();
 //!
@@ -44,6 +46,7 @@
 //! use rand::rngs::StdRng;
 //! use ptero_common::method::SteganographyMethod;
 //! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+//! use ptero_text::line_separator::LineSeparatorType;
 //!
 //! // The RNG must be seeded with the same value as used when concealing
 //! let rng = StdRng::seed_from_u64(1337);
@@ -51,6 +54,7 @@
 //! let mut ext_line_method = ExtendedLineMethod::builder()
 //!     .with_rng(rng)
 //!     .with_pivot(11)
+//!     .with_line_separator(LineSeparatorType::Unix)
 //!     .build()
 //!     .unwrap();
 //!
@@ -74,6 +78,7 @@
 //! use ptero_common::method::{MethodProgressStatus, SteganographyMethod};
 //! use ptero_common::observer::Observer;
 //! use ptero_text::extended_line_method::{ExtendedLineMethod, Variant};
+//! use ptero_text::line_separator::LineSeparatorType;
 //!
 //! struct Listener {
 //!     pub amount_written: u64,
@@ -104,6 +109,7 @@
 //! let mut ext_line_method = ExtendedLineMethod::builder()
 //!     .with_rng(rng)
 //!     .with_pivot(11)
+//!     .with_line_separator(LineSeparatorType::Unix)
 //!     .build()
 //!     .unwrap();
 //!
@@ -140,6 +146,7 @@ use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMeth
 use ptero_common::observer::{Observable, Observer};
 
 use crate::extended_line_method::character_sets::GetCharacterSet;
+use crate::line_separator::{DEFAULT_LINE_SEPARATOR, LineSeparatorType};
 
 use self::line_extend_method::{
     LineExtendMethod, LineExtendMethodBuilder,
@@ -150,8 +157,6 @@ use self::random_whitespace_method::{
 use self::trailing_whitespace_method::{
     TrailingWhitespaceMethod, TrailingWhitespaceMethodBuilder,
 };
-
-const NEWLINE_STR: &str = "\n";
 
 pub mod character_sets;
 mod line_extend_method;
@@ -188,6 +193,7 @@ pub struct ExtendedLineMethodBuilder {
     tw_submethod_builder: TrailingWhitespaceMethodBuilder,
     le_submethod_builder: LineExtendMethodBuilder,
     config_builder: CommonMethodConfigBuilder,
+    line_separator_type: LineSeparatorType,
     variant: Variant,
 }
 
@@ -198,6 +204,7 @@ impl<'a> Default for ExtendedLineMethodBuilder {
             tw_submethod_builder: TrailingWhitespaceMethod::builder(),
             le_submethod_builder: LineExtendMethod::builder(),
             config_builder: CommonMethodConfig::builder(),
+            line_separator_type: DEFAULT_LINE_SEPARATOR,
             variant: Variant::V1,
         }
     }
@@ -237,6 +244,11 @@ impl ExtendedLineMethodBuilder {
     /// Set pivot
     pub fn with_pivot(mut self, pivot: usize) -> Self {
         self.le_submethod_builder.with_pivot(pivot);
+        self
+    }
+
+    pub fn with_line_separator(mut self, line_sep_type: LineSeparatorType) -> Self {
+        self.line_separator_type = line_sep_type;
         self
     }
 
@@ -291,6 +303,7 @@ impl ExtendedLineMethodBuilder {
             rw_submethod: self
                 .rw_submethod_builder
                 .with_shared_config(config_rc.clone())
+                .with_line_separator(self.line_separator_type)
                 .build()
                 .map_err(|source| BuilderError { source: source.into() })?,
             tw_submethod: self
@@ -304,6 +317,7 @@ impl ExtendedLineMethodBuilder {
                 .build()
                 .map_err(|source| BuilderError { source: source.into() })?,
             config: config_rc,
+            line_separator_type: self.line_separator_type,
             variant: self.variant,
         })
     }
@@ -345,6 +359,7 @@ pub type Result<Success> = std::result::Result<Success, ConcealError>;
 pub struct ExtendedLineMethod {
     variant: Variant,
     config: Rc<RefCell<CommonMethodConfig>>,
+    line_separator_type: LineSeparatorType,
     rw_submethod: RandomWhitespaceMethod,
     tw_submethod: TrailingWhitespaceMethod,
     le_submethod: LineExtendMethod,
@@ -488,6 +503,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         Type: BitStore,
     {
         self.le_submethod.verify_pivot(cover)?;
+        let separator = self.line_separator_type.separator();
 
         let mut result = String::with_capacity(cover.len());
 
@@ -499,7 +515,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         while let MethodResult::Success =
             self.partial_conceal(&mut word_iterator, data, &mut result)?
         {
-            result.push_str(NEWLINE_STR);
+            result.push_str(separator);
         }
 
         loop {
@@ -507,7 +523,7 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
             if line.is_empty() {
                 break;
             }
-            result.push_str(NEWLINE_STR);
+            result.push_str(separator);
             result.push_str(&line);
         }
 
@@ -522,8 +538,9 @@ impl<'a> SteganographyMethod<&'a str, ConcealError> for ExtendedLineMethod {
         Type: BitStore,
     {
         let mut revealed_data: BitVec<Order, Type> = BitVec::new();
+        let separator = self.line_separator_type.separator();
 
-        for line in stego_text.split(NEWLINE_STR) {
+        for line in stego_text.split(separator) {
             self.partial_reveal(line, &mut revealed_data);
         }
 
@@ -617,7 +634,7 @@ impl Display for CoverTooSmallErrorReason {
 }
 
 #[cfg(test)]
-mod test {
+mod should {
     use rand::rngs::mock::StepRng;
 
     use crate::extended_line_method::character_sets::CharacterSetType;
@@ -626,7 +643,7 @@ mod test {
 
     #[test]
     #[should_panic(expected = "Couldn't finish building ExtendedLineMethod: `rng` must be initialized")]
-    fn errors_when_rng_not_provided() {
+    fn return_error_when_rng_not_provided() {
         let builder = ExtendedLineMethod::builder()
             .with_trailing_charset(CharacterSetType::OneBit)
             .with_pivot(20)
@@ -638,7 +655,7 @@ mod test {
     }
 
     #[test]
-    fn has_default_pivot_provided() {
+    fn have_default_pivot_provided() {
         ExtendedLineMethod::builder()
             .with_rng(StepRng::new(1, 1))
             .with_trailing_charset(CharacterSetType::OneBit)
@@ -648,7 +665,7 @@ mod test {
     }
 
     #[test]
-    fn has_default_charset_provided() {
+    fn have_default_charset_provided() {
         ExtendedLineMethod::builder()
             .with_rng(StepRng::new(1, 1))
             .with_pivot(20)
@@ -658,7 +675,7 @@ mod test {
     }
 
     #[test]
-    fn has_default_variant_provided() {
+    fn have_default_variant_provided() {
         ExtendedLineMethod::builder()
             .with_rng(StepRng::new(1, 1))
             .with_trailing_charset(CharacterSetType::OneBit)
