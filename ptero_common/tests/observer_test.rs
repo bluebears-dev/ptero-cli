@@ -30,7 +30,7 @@ impl Observer<Event> for Counter {
 }
 
 #[test]
-fn notifies_subscribers() {
+fn should_notify_subscribers() {
     let mut event_notifier: EventNotifier<Event> = EventNotifier::default();
     let counter_one = Arc::new(RefCell::new(Counter { value: 0 }));
     let counter_two = Arc::new(RefCell::new(Counter { value: 0 }));
@@ -47,7 +47,7 @@ fn notifies_subscribers() {
 }
 
 #[test]
-fn properly_cleans_up_when_invalid_reference_occurs() {
+fn should_properly_clean_up_when_invalid_reference_occurs() {
     let mut event_notifier: EventNotifier<Event> = EventNotifier::default();
     let counter_one = Arc::new(RefCell::new(Counter { value: 0 }));
     let counter_two = Arc::new(RefCell::new(Counter { value: 4 }));
