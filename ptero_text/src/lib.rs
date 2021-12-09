@@ -3,4 +3,4 @@ extern crate derive_builder;
 
 pub mod extended_line_method;
 
-mod line_separator;
+pub mod line_separator;
