@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use rand::RngCore;
 use rstest::*;
 
-use ptero_text::extended_line_method::{ExtendedLineMethod, ExtendedLineMethodBuilder, Variant};
 use ptero_text::extended_line_method::character_sets::GetCharacterSet;
+use ptero_text::extended_line_method::{ExtendedLineMethod, ExtendedLineMethodBuilder, Variant};
 use ptero_text::line_separator::LineSeparatorType;
 
 use crate::test_resource::ResourceLoader;
@@ -15,16 +15,15 @@ mod one_bit_test;
 #[cfg(test)]
 mod two_bit_test;
 
-const WITH_WORDS_TEXT: &str = "A little panda has fallen from a tree. The panda went rolling down the hill";
+const WITH_WORDS_TEXT: &str =
+    "A little panda has fallen from a tree. The panda went rolling down the hill";
 const TINY_TEXT: &str = "TI NY COVER";
 const ONE_WORD_TEXT: &str = "Words.";
 const EMPTY_TEXT: &str = "";
 
 #[fixture]
 pub fn cover_text_loader() -> ResourceLoader {
-    let dir_path = PathBuf::new()
-        .join("resources")
-        .join("cover_texts");
+    let dir_path = PathBuf::new().join("resources").join("cover_texts");
 
     ResourceLoader::new(&dir_path)
 }

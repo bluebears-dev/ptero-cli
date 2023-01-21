@@ -1,10 +1,30 @@
-use std::{error::Error, path::PathBuf, sync::Once};
+use std::{error::Error, fs, path::PathBuf, sync::Once};
 
 use assert_cmd::Command;
-use log::LevelFilter;
+use log::{error, LevelFilter};
 use serde_json::Value;
 
 static INIT: Once = Once::new();
+
+pub struct TemporaryFile<'a>(pub &'a str);
+
+impl<'a> Drop for TemporaryFile<'a> {
+    fn drop(&mut self) {
+        let file_path = PathBuf::from(self.0);
+
+        if file_path.exists() {
+            fs::remove_file(file_path)
+                .map_err(|e| error!("Failed during teardown: {:?}", e))
+                .ok();
+        }
+    }
+}
+
+impl<'a> TemporaryFile<'a> {
+    pub fn path(&self) -> PathBuf {
+        PathBuf::from(self.0)
+    }
+}
 
 pub fn global_setup() {
     INIT.call_once(|| {

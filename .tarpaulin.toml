@@ -1,0 +1,9 @@
+[config]
+exclude-files = ["src/log.rs", "**/tests"]
+force-clean = true
+ignore-tests = true
+workspace = true
+offline = true
+
+[report]
+out = ["Lcov"]

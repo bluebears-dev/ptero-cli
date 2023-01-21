@@ -37,13 +37,13 @@ impl PartialEq<str> for LineSeparatorType {
 pub const DEFAULT_LINE_SEPARATOR: LineSeparatorType = LineSeparatorType::Windows;
 
 #[cfg(not(windows))]
-pub const DEFAULT_LINE_SEPARATOR: LineSeparatorType = LineSeparatorType::Unix;
+pub const DEFAULT_LINE_SEPARATOR: LineSeparatorType = LineSeparatorType::UnixMixed;
 
 #[cfg(test)]
 mod should {
     use rstest::*;
 
-    use crate::line_separator::{DEFAULT_LINE_SEPARATOR, LineSeparatorType};
+    use crate::line_separator::{LineSeparatorType, DEFAULT_LINE_SEPARATOR};
 
     #[rstest]
     #[case::windows(LineSeparatorType::Windows, "\r\n")]
@@ -71,6 +71,6 @@ mod should {
     #[test]
     #[cfg(not(windows))]
     fn return_correct_default_for_other_platforms() {
-        assert_eq!(LineSeparatorType::Unix, DEFAULT_LINE_SEPARATOR);
+        assert_eq!(LineSeparatorType::UnixMixed, DEFAULT_LINE_SEPARATOR);
     }
 }
