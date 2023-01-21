@@ -2,12 +2,13 @@ use std::error::Error;
 
 use bitvec::prelude::*;
 use bitvec::view::BitView;
+use ptero_text::line_separator::DEFAULT_LINE_SEPARATOR;
 use rand::rngs::mock::StepRng;
 use rstest::*;
 
 use ptero_common::method::SteganographyMethod;
-use ptero_text::extended_line_method::{ConcealError, Variant};
 use ptero_text::extended_line_method::character_sets::CharacterSetType::OneBit;
+use ptero_text::extended_line_method::{ConcealError, Variant};
 
 use crate::extended_line_method_test::*;
 use crate::test_resource::ResourceLoader;
@@ -173,9 +174,11 @@ fn works_with_empty_data() -> Result<(), Box<dyn Error>> {
     let stego_text =
         method.try_conceal(WITH_WORDS_TEXT, &mut data_input.view_bits::<Msb0>().iter())?;
 
+    let expected_text = "A little\npanda\nhas\nfallen\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill";
+    
     assert_eq!(
         stego_text,
-        "A little\npanda\nhas\nfallen\nfrom a\ntree.\nThe\npanda\nwent\nrolling\ndown the\nhill"
+        expected_text.replace("\n", DEFAULT_LINE_SEPARATOR.into())
     );
     Ok(())
 }

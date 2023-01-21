@@ -3,6 +3,8 @@ use log::{debug, info};
 use std::{error::Error, fs, panic, path::PathBuf};
 use utils::{global_setup, run_decode_command, run_encode_command};
 
+use crate::utils::TemporaryFile;
+
 mod utils;
 
 fn check_if_does_not_fail_when_encoding_over_ascii_cover(
@@ -48,7 +50,8 @@ fn check_if_encodes_and_decodes_the_same_data(
     method: &str,
 ) -> Result<(), Box<dyn Error>> {
     debug!("Checking for method: {}", method);
-    let encoding_output_path = PathBuf::from("encode_out");
+    let temp_file = TemporaryFile("encode_out");
+    let encoding_output_path = temp_file.path();
 
     info!("Encoding and saving to file");
     run_encode_command(&cover, &data, 50, Some(&encoding_output_path), method)?;
