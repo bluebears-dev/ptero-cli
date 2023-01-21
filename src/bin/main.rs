@@ -111,7 +111,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(path) = &opts.output {
             let mut output_file = File::create(path)?;
             output_file.write_all(&cli_output)?;
-            Writer::info(&format!("Saved to '{:?}'", path.as_os_str()));
+            Writer::info(&format!("Result saved to {:?}", path.as_os_str()));
         } else {
             let output = &String::from_utf8_lossy(&cli_output);
             if opts.json {

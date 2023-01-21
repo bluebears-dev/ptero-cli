@@ -3,13 +3,13 @@ use std::{
     fs::{read_to_string, File},
     io::Read,
     path::PathBuf,
-    sync::Arc,
+    sync::{mpsc::channel, Arc},
 };
 
 use bitvec::prelude::*;
 use bitvec::view::BitView;
 use clap::builder::TypedValueParser;
-use ptero_common::method::SteganographyMethod;
+use ptero_common::method::{MethodProgressStatus, SteganographyMethod};
 use ptero_text::{
     extended_line_method::{
         character_sets::CharacterSetType, ExtendedLineMethod, ExtendedLineMethodBuilder, Variant,
@@ -19,7 +19,7 @@ use ptero_text::{
 use rand::{rngs::StdRng, SeedableRng};
 use std::error::Error;
 
-use crate::cli::progress::ProgressBarObserver;
+use crate::cli::progress::{create_progress_bar, spawn_progress_bar, SenderProxyObserver};
 
 #[derive(clap::Args, Debug)]
 struct ExtendedLineCommand {
@@ -134,12 +134,17 @@ fn conceal(
     cover_data: &str,
     data: &[u8],
 ) -> Result<Vec<u8>, Box<dyn Error>> {
-    let progress_bar_observer = ProgressBarObserver::new(data.len() as u64);
+    let (sender, receiver) = channel::<MethodProgressStatus>();
+    let progress_bar = create_progress_bar(data.len() as u64);
+    let proxy_observer = SenderProxyObserver::new(sender);
 
-    let arc_bar = Arc::new(RefCell::new(progress_bar_observer));
+    let arc_bar = Arc::new(RefCell::new(proxy_observer));
+    spawn_progress_bar(progress_bar.clone(), receiver);
 
     method.subscribe(arc_bar);
     let concealed_data = method.try_conceal(&cover_data, &mut data.view_bits::<Msb0>().iter())?;
+
+    progress_bar.finish_with_message("Concealment finished.");
 
     Ok(concealed_data.as_bytes().to_vec())
 }
