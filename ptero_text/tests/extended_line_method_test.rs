@@ -5,7 +5,6 @@ use rstest::*;
 
 use ptero_text::extended_line_method::character_sets::GetCharacterSet;
 use ptero_text::extended_line_method::{ExtendedLineMethod, ExtendedLineMethodBuilder, Variant};
-use ptero_text::line_separator::LineSeparatorType;
 
 use crate::test_resource::ResourceLoader;
 

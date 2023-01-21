@@ -131,6 +131,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::iter::Peekable;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use bitvec::prelude::*;
@@ -139,29 +140,21 @@ use rand::RngCore;
 use snafu::Snafu;
 use unicode_segmentation::UnicodeSegmentation;
 
-use ptero_common::config::{
-    CommonMethodConfig, CommonMethodConfigBuilder,
-};
+use ptero_common::config::{CommonMethodConfig, CommonMethodConfigBuilder};
 use ptero_common::method::{MethodProgressStatus, MethodResult, SteganographyMethod};
 use ptero_common::observer::{Observable, Observer};
 
 use crate::extended_line_method::character_sets::GetCharacterSet;
-use crate::line_separator::{DEFAULT_LINE_SEPARATOR, LineSeparatorType};
+use crate::line_separator::{LineSeparatorType, DEFAULT_LINE_SEPARATOR};
 
-use self::line_extend_method::{
-    LineExtendMethod, LineExtendMethodBuilder,
-};
-use self::random_whitespace_method::{
-    RandomWhitespaceMethod, RandomWhitespaceMethodBuilder,
-};
-use self::trailing_whitespace_method::{
-    TrailingWhitespaceMethod, TrailingWhitespaceMethodBuilder,
-};
+use self::line_extend_method::{LineExtendMethod, LineExtendMethodBuilder};
+use self::random_whitespace_method::{RandomWhitespaceMethod, RandomWhitespaceMethodBuilder};
+use self::trailing_whitespace_method::{TrailingWhitespaceMethod, TrailingWhitespaceMethodBuilder};
 
 pub mod character_sets;
-mod line_extend_method;
-mod random_whitespace_method;
-mod trailing_whitespace_method;
+pub mod line_extend_method;
+pub mod random_whitespace_method;
+pub mod trailing_whitespace_method;
 
 #[derive(Debug)]
 pub(crate) enum MethodActions {
@@ -172,7 +165,7 @@ pub(crate) enum MethodActions {
 
 /// Extended Line method variant.
 /// It describes which variation of internally used algorithms you want to use.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Variant {
     /// Triggers submethods in given order:
     ///
@@ -186,6 +179,19 @@ pub enum Variant {
     ///
     /// Random Whitespace, Line Extension, Trailing Whitespace
     V3,
+}
+
+impl FromStr for Variant {
+    type Err = ();
+
+    fn from_str(input: &str) -> std::result::Result<Variant, Self::Err> {
+        match input {
+            "v1" => Ok(Variant::V1),
+            "v2" => Ok(Variant::V2),
+            "v3" => Ok(Variant::V3),
+            _ => Err(()),
+        }
+    }
 }
 
 pub struct ExtendedLineMethodBuilder {
@@ -289,12 +295,9 @@ impl ExtendedLineMethodBuilder {
     ///     .build();
     /// ```
     pub fn build(self) -> std::result::Result<ExtendedLineMethod, BuilderError> {
-        let config = self
-            .config_builder
-            .build()
-            .map_err(|source| {
-                BuilderError { source: source.into() }
-            })?;
+        let config = self.config_builder.build().map_err(|source| BuilderError {
+            source: source.into(),
+        })?;
 
         let config_rc = Rc::new(RefCell::new(config));
 
@@ -305,17 +308,23 @@ impl ExtendedLineMethodBuilder {
                 .with_shared_config(config_rc.clone())
                 .with_line_separator(self.line_separator_type)
                 .build()
-                .map_err(|source| BuilderError { source: source.into() })?,
+                .map_err(|source| BuilderError {
+                    source: source.into(),
+                })?,
             tw_submethod: self
                 .tw_submethod_builder
                 .with_shared_config(config_rc.clone())
                 .build()
-                .map_err(|source| BuilderError { source: source.into() })?,
+                .map_err(|source| BuilderError {
+                    source: source.into(),
+                })?,
             le_submethod: self
                 .le_submethod_builder
                 .with_shared_config(config_rc.clone())
                 .build()
-                .map_err(|source| BuilderError { source: source.into() })?,
+                .map_err(|source| BuilderError {
+                    source: source.into(),
+                })?,
             config: config_rc,
             line_separator_type: self.line_separator_type,
             variant: self.variant,
@@ -346,7 +355,7 @@ pub(crate) fn get_variant_methods(variant: &Variant) -> &'static [MethodActions;
 #[derive(Debug, Snafu)]
 #[snafu(display("Couldn't finish building ExtendedLineMethod: {}", source))]
 pub struct BuilderError {
-    source: Box<dyn Error>
+    source: Box<dyn Error>,
 }
 
 fn graphemes_length(text: &str) -> usize {
@@ -642,7 +651,9 @@ mod should {
     use super::*;
 
     #[test]
-    #[should_panic(expected = "Couldn't finish building ExtendedLineMethod: `rng` must be initialized")]
+    #[should_panic(
+        expected = "Couldn't finish building ExtendedLineMethod: `rng` must be initialized"
+    )]
     fn return_error_when_rng_not_provided() {
         let builder = ExtendedLineMethod::builder()
             .with_trailing_charset(CharacterSetType::OneBit)
@@ -683,5 +694,4 @@ mod should {
             .build()
             .unwrap();
     }
-
 }

@@ -69,12 +69,14 @@ pub struct EventNotifier<Ev> {
 
 impl<Ev> EventNotifier<Ev> {
     pub fn new() -> EventNotifier<Ev> {
-        EventNotifier { subscribers: Vec::new() }
+        EventNotifier {
+            subscribers: Vec::new(),
+        }
     }
 
     /// Sends an event to all valid subscribers.
     ///
-    /// It [`Arc`] reference is not valid, proceeds to clean-up invalid subscribers.
+    /// If [`Arc`] reference is not valid, proceeds to clean-up invalid subscribers.
     pub fn notify(&mut self, event: &Ev) {
         let mut cleanup_needed = false;
 

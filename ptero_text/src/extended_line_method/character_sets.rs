@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 /// This trait is used for reading unicode set data.
 ///
 /// New sets should implement `get_set` which provides the array with
@@ -136,6 +138,22 @@ pub enum CharacterSetType {
     TwoBit,
     OneBit,
     Twitter,
+}
+
+impl FromStr for CharacterSetType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "full" => Ok(CharacterSetType::Full),
+            "four_bit" => Ok(CharacterSetType::FourBit),
+            "three_bit" => Ok(CharacterSetType::ThreeBit),
+            "two_bit" => Ok(CharacterSetType::TwoBit),
+            "one_bit" => Ok(CharacterSetType::OneBit),
+            "twitter" => Ok(CharacterSetType::Twitter),
+            _ => Err(()),
+        }
+    }
 }
 
 impl GetCharacterSet for CharacterSetType {

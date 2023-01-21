@@ -1,16 +1,15 @@
-use std::{error::Error, fs::File, io::Write, process};
+use std::{error::Error, fs::File, io::Write, path::PathBuf, process};
 
-use clap::{ArgGroup, Clap, crate_version};
+use clap::{Parser, Subcommand};
 use colored::Colorize;
 
 use ptero::{
-    cli::{
-        capacity::GetCapacityCommand, decoder::DecodeSubCommand,
-        encoder::EncodeSubCommand, writer::Writer,
-    },
+    cli::writer::Writer,
     log::{get_file_logger, get_stdout_logger, verbosity_to_level_filter},
 };
 use serde_json::json;
+
+use ptero::cli::commands::extended_line;
 
 const BANNER: &str = r#"
 
@@ -22,56 +21,47 @@ const BANNER: &str = r#"
                                                     
 "#;
 
-const APP_NAME: &str = "Ptero CLI";
-
-/// The CLI text steganography tool for social media.
-#[derive(Clap)]
-#[clap(
-version = crate_version!(),
-author = "Paweł G. <dev.baymax42@gmail.com>",
-name = format ! ("{}{}", BANNER, APP_NAME),
-group = ArgGroup::new("output_args").required(false),
-)]
+/// Yet another CLI steganography tool.
+#[derive(Debug, Parser)]
+#[command(name = "Ptero CLI", author, about, version)]
+#[command(group = clap::ArgGroup::new("output_args").multiple(false))]
 struct Opts {
-    #[clap(subcommand)]
-    subcommand: SubCommand,
-
+    #[command(subcommand)]
+    subcommand: AvailableMethods,
     /// Path to file where the result of encoding/decoding should be placed.
     /// If not used, it will print to stdout.
     ///
     /// Cannot be used in conjunction with `--json` flag.
-    #[clap(short, long, group = "output_args")]
-    output: Option<String>,
-
-    /// Flag for controlling verbosity of the output logs.
-    ///
-    /// To increase verbosity add additional occurrences e.g. `-v` will print warn logs and so on.
-    /// By default only error logs are printed.
-    #[clap(short, parse(from_occurrences))]
-    verbose: u8,
+    #[arg(short, long, group = "output_args", value_hint = clap::ValueHint::DirPath)]
+    output: Option<PathBuf>,
 
     /// If present, will print the output of the CLI in JSON format that can be further parsed by other tooling.
     ///
     /// Cannot be used in conjunction with `-o` flag.
-    #[clap(long, group = "output_args")]
+    #[arg(long, group = "output_args")]
     json: bool,
 
     /// Path to log file.
     ///
     /// By default CLI won't save any logs. If this param is used, CLI will append new logs at the end of the file
     /// pointed by the path. It is affected by the verbosity flag (`-v`).
-    #[clap(long)]
+    #[arg(long, value_hint = clap::ValueHint::DirPath)]
     log_file: Option<String>,
+
+    /// Flag for controlling verbosity of the output logs.
+    ///
+    /// To increase verbosity add additional occurrences e.g. `-v` will print warn logs and so on.
+    /// By default only error logs are printed.
+    #[arg(short, default_value = "0")]
+    verbose: u8,
 }
 
-#[derive(Clap)]
-enum SubCommand {
-    #[clap(name = "encode", group = ArgGroup::new("method_args").required(true))]
-    Encode(EncodeSubCommand),
-    #[clap(name = "decode", group = ArgGroup::new("method_args").required(true))]
-    Decode(DecodeSubCommand),
-    #[clap(name = "capacity", group = ArgGroup::new("method_args").required(true))]
-    GetCapacity(GetCapacityCommand),
+#[derive(Debug, Subcommand)]
+enum AvailableMethods {
+    /// Select the base Extended Line method. Text steganography.
+    ELINE(extended_line::ELINECommand),
+    /// Select the ELUV method, a variant of Extended Line method using unicode whitespace. Text steganography.
+    ELUV(extended_line::ELUVCommand),
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -96,24 +86,18 @@ fn enable_logging(
 }
 
 #[cfg(not(tarpaulin_include))]
-fn run_subcommand(subcommand: SubCommand) -> Result<Vec<u8>, Box<dyn Error>> {
-    let result = match subcommand {
-        SubCommand::Encode(command) => command.run()?,
-        SubCommand::Decode(command) => command.run()?,
-        SubCommand::GetCapacity(command) => {
-            let capacity: u32 = command.run()?;
-            let output_str = format!("{} b", capacity);
-            output_str.as_bytes().into()
-        }
-    };
-    Ok(result)
+fn run_subcommand(subcommand: AvailableMethods) -> Result<Vec<u8>, Box<dyn Error>> {
+    match subcommand {
+        AvailableMethods::ELINE(command) => command.execute(),
+        AvailableMethods::ELUV(command) => command.execute(),
+    }
 }
 #[cfg(not(tarpaulin_include))]
 fn main() -> Result<(), Box<dyn Error>> {
+    Writer::print(&BANNER.purple().bold().to_string());
     let opts: Opts = Opts::parse();
 
     enable_logging(opts.verbose, opts.log_file)?;
-    Writer::print(&BANNER.purple().bold().to_string());
 
     let result = run_subcommand(opts.subcommand);
 
@@ -123,10 +107,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         process::exit(1);
     } else {
         let cli_output = &result?;
+
         if let Some(path) = &opts.output {
             let mut output_file = File::create(path)?;
             output_file.write_all(&cli_output)?;
-            Writer::info(&format!("Saved to '{}'", &path));
+            Writer::info(&format!("Saved to '{:?}'", path.as_os_str()));
         } else {
             let output = &String::from_utf8_lossy(&cli_output);
             if opts.json {

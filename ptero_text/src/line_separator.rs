@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum LineSeparatorType {
     Windows,
@@ -11,6 +13,18 @@ impl LineSeparatorType {
             LineSeparatorType::Windows => "\r\n",
             LineSeparatorType::Unix => "\n",
             LineSeparatorType::UnixMixed => "\n",
+        }
+    }
+}
+
+impl FromStr for LineSeparatorType {
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        match input {
+            "windows" => Ok(LineSeparatorType::Windows),
+            "unix" => Ok(LineSeparatorType::UnixMixed),
+            _ => Err(()),
         }
     }
 }
